@@ -112,13 +112,8 @@ void main() {
   test('rejects invalid numeric ranges', () {
     expect(() => CpclGenerator().speed(6), throwsA(isA<RangeError>()));
     expect(
-      () => CpclGenerator().text(
-        0,
-        0,
-        'bad',
-        style: CpclTextStyle(xMultiplier: 17),
-      ),
-      throwsA(isA<RangeError>()),
+      () => CpclTextStyle(xMultiplier: 17),
+      throwsA(isA<AssertionError>()),
     );
     expect(
       () => CpclGenerator().qrCode(0, 0, 'bad', unit: 0),
