@@ -49,3 +49,18 @@ enum CpclQrErrorCorrection {
 
   final String value;
 }
+
+enum CpclCountryCode {
+  usa('USA'),
+  france('FRANCE'),
+  germany('GERMANY'),
+  uk('UK'),
+  spain('SPAIN'),
+  italy('ITALY'),
+  sweden('SWEDEN'),
+  norway('NORWAY');
+
+  const CpclCountryCode(this.value);
+
+  final String value;
+}

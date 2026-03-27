@@ -14,6 +14,7 @@ void main() {
       ..initialize(const CpclLabelSize(576, 320))
       ..speed(3)
       ..tone(1)
+      ..contrast(2)
       ..text(20, 30, 'Hello CPCL')
       ..line(20, 70, 200, 70, thickness: 2)
       ..barcode(20, 90, '1234567890')
@@ -27,6 +28,7 @@ void main() {
       'PAGE-WIDTH 576\r\n'
       'SPEED 3\r\n'
       'TONE 1\r\n'
+      'CONTRAST 2\r\n'
       'TEXT 0 0 20 30 Hello CPCL\r\n'
       'LINE 20 70 200 70 2\r\n'
       'BARCODE 128 1 1 100 20 90 1234567890\r\n'
@@ -40,7 +42,9 @@ void main() {
 
   test('supports text rotation, magnification, and layout commands', () {
     final generator = CpclGenerator()
+      ..country(CpclCountryCode.usa)
       ..center()
+      ..setLp(const CpclLinePrintOptions(font: CpclFont.font2, size: 1))
       ..text(
         10,
         12,
@@ -55,19 +59,125 @@ void main() {
       )
       ..left()
       ..box(5, 6, 30, 40, thickness: 3)
+      ..inverseLine(8, 9, 10, 11)
       ..prefeed(24)
       ..postfeed(48);
 
     expect(
       generator.preview(),
+      'COUNTRY USA\r\n'
       'CENTER\r\n'
+      'SETLP 2 1 24 24\r\n'
       'SETMAG 1 2\r\n'
       'TEXT90 4 2 10 12 Scaled\r\n'
       'SETMAG 0 0\r\n'
       'LEFT\r\n'
       'BOX 5 6 30 40 3\r\n'
+      'INVERSE-LINE 8 9 10 11\r\n'
       'PREFEED 24\r\n'
       'POSTFEED 48\r\n',
+    );
+  });
+
+  test('sanitizes line breaks in text, barcode, and QR payloads', () {
+    final generator = CpclGenerator()
+      ..text(10, 12, 'Line 1\nLine 2')
+      ..barcode(20, 40, 'ABC\r\n123')
+      ..qrCode(30, 60, 'https://example.com/\npath');
+
+    expect(
+      generator.preview(),
+      'TEXT 0 0 10 12 Line 1 Line 2\r\n'
+      'BARCODE 128 1 1 100 20 40 ABC 123\r\n'
+      'B QR 30 60 M 2 U 6\r\n'
+      'MA,https://example.com/ path\r\n'
+      'ENDQR\r\n',
+    );
+  });
+
+  test('supports typed barcode and qr options including vertical barcode', () {
+    final generator = CpclGenerator()
+      ..barcode(
+        24,
+        40,
+        'ABC123',
+        options: const CpclBarcodeOptions(
+          type: CpclBarcodeType.code39,
+          narrow: 2,
+          wide: 3,
+          height: 88,
+        ),
+      )
+      ..verticalBarcode(
+        180,
+        20,
+        'ZX-9',
+        options: const CpclBarcodeOptions(
+          type: CpclBarcodeType.codabar,
+          narrow: 1,
+          wide: 2,
+          height: 70,
+        ),
+      )
+      ..qrCode(
+        30,
+        60,
+        'payload',
+        options: const CpclQrCodeOptions(
+          ecc: CpclQrErrorCorrection.high,
+          model: 1,
+          unit: 8,
+        ),
+      );
+
+    expect(
+      generator.preview(),
+      'BARCODE 39 2 3 88 24 40 ABC123\r\n'
+      'VBARCODE CODABAR 1 2 70 180 20 ZX-9\r\n'
+      'B QR 30 60 M 1 U 8\r\n'
+      'HA,payload\r\n'
+      'ENDQR\r\n',
+    );
+  });
+
+  test('supports a richer shipping-label style command sequence', () {
+    final generator = CpclGenerator()
+      ..initialize(const CpclLabelSize(576, 320))
+      ..box(10, 10, 566, 310, thickness: 2)
+      ..line(20, 60, 556, 60, thickness: 2)
+      ..text(
+        24,
+        24,
+        'SHIP TO',
+        style: const CpclTextStyle(
+          font: CpclFont.font4,
+          xMultiplier: 2,
+          yMultiplier: 2,
+        ),
+      )
+      ..text(24, 76, 'Customer: John Doe')
+      ..barcode(
+        24,
+        220,
+        'PKG-2026-0001',
+        options: const CpclBarcodeOptions(height: 80),
+      )
+      ..form()
+      ..print();
+
+    expect(
+      generator.preview(),
+      '! 0 200 200 320 1\r\n'
+      'PAGE-WIDTH 576\r\n'
+      'BOX 10 10 566 310 2\r\n'
+      'LINE 20 60 556 60 2\r\n'
+      'SETMAG 1 1\r\n'
+      'TEXT 4 0 24 24 SHIP TO\r\n'
+      'SETMAG 0 0\r\n'
+      'TEXT 0 0 24 76 Customer: John Doe\r\n'
+      'BARCODE 128 1 1 80 24 220 PKG-2026-0001\r\n'
+      'FORM\r\n'
+      'PRINT\r\n',
     );
   });
 
@@ -116,7 +226,12 @@ void main() {
       throwsA(isA<AssertionError>()),
     );
     expect(
-      () => CpclGenerator().qrCode(0, 0, 'bad', unit: 0),
+      () => CpclGenerator().qrCode(
+        0,
+        0,
+        'bad',
+        options: CpclQrCodeOptions(unit: 0),
+      ),
       throwsA(isA<RangeError>()),
     );
   });

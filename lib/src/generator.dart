@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import 'commands.dart';
 import 'enums.dart';
 import 'label_size.dart';
+import 'options.dart';
 import 'rendered_text_options.dart';
 import 'text_style.dart';
 
@@ -78,6 +79,15 @@ class CpclGenerator {
     return rawCommand('TONE $value');
   }
 
+  CpclGenerator contrast(int value) {
+    requireRange(value, 0, 3, 'value');
+    return rawCommand('CONTRAST $value');
+  }
+
+  CpclGenerator country(CpclCountryCode value) {
+    return rawCommand('COUNTRY ${value.value}');
+  }
+
   CpclGenerator prefeed(int dots) {
     requireNonNegative(dots, 'dots');
     return rawCommand('PREFEED $dots');
@@ -93,6 +103,15 @@ class CpclGenerator {
   CpclGenerator left() => rawCommand('LEFT');
 
   CpclGenerator right() => rawCommand('RIGHT');
+
+  CpclGenerator setLp(CpclLinePrintOptions options) {
+    requireNonNegative(options.size, 'options.size');
+    requirePositive(options.unitWidth, 'options.unitWidth');
+    requirePositive(options.unitHeight, 'options.unitHeight');
+    return rawCommand(
+      'SETLP ${options.font.value} ${options.size} ${options.unitWidth} ${options.unitHeight}',
+    );
+  }
 
   CpclGenerator text(
     int x,
@@ -129,20 +148,37 @@ class CpclGenerator {
     return rawCommand('BOX $x0 $y0 $x1 $y1 $thickness');
   }
 
+  CpclGenerator inverseLine(int x, int y, int width, int height) {
+    requirePositive(width, 'width');
+    requirePositive(height, 'height');
+    return rawCommand('INVERSE-LINE $x $y $width $height');
+  }
+
   CpclGenerator barcode(
     int x,
     int y,
     String content, {
-    CpclBarcodeType type = CpclBarcodeType.code128,
-    int narrow = 1,
-    int wide = 1,
-    int height = 100,
+    CpclBarcodeOptions options = const CpclBarcodeOptions(),
   }) {
-    requirePositive(narrow, 'narrow');
-    requirePositive(wide, 'wide');
-    requirePositive(height, 'height');
+    requirePositive(options.narrow, 'options.narrow');
+    requirePositive(options.wide, 'options.wide');
+    requirePositive(options.height, 'options.height');
     return rawCommand(
-      'BARCODE ${type.value} $narrow $wide $height $x $y ${sanitizeCpclText(content)}',
+      'BARCODE ${options.type.value} ${options.narrow} ${options.wide} ${options.height} $x $y ${sanitizeCpclText(content)}',
+    );
+  }
+
+  CpclGenerator verticalBarcode(
+    int x,
+    int y,
+    String content, {
+    CpclBarcodeOptions options = const CpclBarcodeOptions(),
+  }) {
+    requirePositive(options.narrow, 'options.narrow');
+    requirePositive(options.wide, 'options.wide');
+    requirePositive(options.height, 'options.height');
+    return rawCommand(
+      'VBARCODE ${options.type.value} ${options.narrow} ${options.wide} ${options.height} $x $y ${sanitizeCpclText(content)}',
     );
   }
 
@@ -150,16 +186,14 @@ class CpclGenerator {
     int x,
     int y,
     String content, {
-    CpclQrErrorCorrection ecc = CpclQrErrorCorrection.medium,
-    int model = 2,
-    int unit = 6,
+    CpclQrCodeOptions options = const CpclQrCodeOptions(),
   }) {
-    requireRange(model, 1, 2, 'model');
-    requireRange(unit, 1, 32, 'unit');
+    requireRange(options.model, 1, 2, 'options.model');
+    requireRange(options.unit, 1, 32, 'options.unit');
 
     return this
-      ..rawCommand('B QR $x $y M $model U $unit')
-      ..rawCommand('${ecc.value}A,${sanitizeCpclText(content)}')
+      ..rawCommand('B QR $x $y M ${options.model} U ${options.unit}')
+      ..rawCommand('${options.ecc.value}A,${sanitizeCpclText(content)}')
       ..rawCommand('ENDQR');
   }
 
