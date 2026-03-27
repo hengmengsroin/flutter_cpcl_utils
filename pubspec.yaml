@@ -1,0 +1,29 @@
+name: flutter_cpcl_utils
+description: Utilities for generating CPCL printer commands from Flutter and Dart.
+version: 0.1.0
+homepage: https://github.com/hengmengsroin/flutter_cpcl_utils
+repository: https://github.com/hengmengsroin/flutter_cpcl_utils
+issue_tracker: https://github.com/hengmengsroin/flutter_cpcl_utils/issues
+documentation: https://github.com/hengmengsroin/flutter_cpcl_utils#readme
+topics:
+  - cpcl
+  - printer
+  - label-printer
+  - barcode
+  - bluetooth-printing
+
+environment:
+  sdk: ^3.11.1
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  image: ^4.5.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
