@@ -10,5 +10,6 @@ void main() {
     ..form()
     ..print();
 
-  print(generator.preview());
+  final bytes = generator.build();
+  assert(bytes.isNotEmpty);
 }
