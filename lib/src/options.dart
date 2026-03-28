@@ -39,3 +39,47 @@ class CpclLinePrintOptions {
   final int unitWidth;
   final int unitHeight;
 }
+
+class CpclConfiguration {
+  const CpclConfiguration({
+    required this.printWidth,
+    required this.labelLength,
+    this.copies = 1,
+    this.offset = 0,
+    this.printDensity = CpclPrintDensity.d8,
+    this.horizontalDpi,
+    this.verticalDpi,
+    this.speed,
+    this.tone,
+    this.contrast,
+    this.country,
+    this.prefeed,
+    this.postfeed,
+    this.alignment,
+    this.linePrintOptions,
+    this.autoForm = true,
+    this.autoPrint = true,
+  });
+
+  final int printWidth;
+  final int labelLength;
+  final int copies;
+  final int offset;
+  final CpclPrintDensity printDensity;
+  final int? horizontalDpi;
+  final int? verticalDpi;
+  final int? speed;
+  final int? tone;
+  final int? contrast;
+  final CpclCountryCode? country;
+  final int? prefeed;
+  final int? postfeed;
+  final CpclAlignment? alignment;
+  final CpclLinePrintOptions? linePrintOptions;
+  final bool autoForm;
+  final bool autoPrint;
+
+  int get resolvedHorizontalDpi => horizontalDpi ?? printDensity.dpi;
+
+  int get resolvedVerticalDpi => verticalDpi ?? printDensity.dpi;
+}

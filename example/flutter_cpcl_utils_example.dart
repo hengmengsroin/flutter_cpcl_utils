@@ -1,52 +1,45 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_cpcl_utils/flutter_cpcl_utils.dart';
 
 void main() {
-  final generator = CpclGenerator()
-    ..initialize(const CpclLabelSize(576, 320))
-    ..speed(3)
-    ..tone(1)
-    ..contrast(2)
-    ..country(CpclCountryCode.usa)
-    ..box(10, 10, 566, 310, thickness: 2)
-    ..line(20, 60, 556, 60, thickness: 2)
-    ..text(
-      24,
-      24,
-      'SHIP TO',
-      style: const CpclTextStyle(
-        font: CpclFont.font4,
-        size: 0,
-        xMultiplier: 2,
-        yMultiplier: 2,
-      ),
-    )
-    ..text(24, 76, 'Customer: John Doe')
-    ..text(24, 106, 'Phone: 012 345 678')
-    ..text(24, 136, 'Address: 123 Market Street')
-    ..text(24, 166, 'Phnom Penh, Cambodia')
-    ..inverseLine(22, 214, 340, 92)
-    ..line(20, 206, 556, 206, thickness: 1)
-    ..barcode(
-      24,
-      220,
-      'PKG-2026-0001',
-      options: const CpclBarcodeOptions(
-        type: CpclBarcodeType.code128,
-        height: 80,
-      ),
-    )
-    ..qrCode(
-      390,
-      76,
-      'https://tracking.example.com/PKG-2026-0001',
-      options: const CpclQrCodeOptions(
-        ecc: CpclQrErrorCorrection.high,
-        unit: 7,
-      ),
-    )
-    ..form()
-    ..print();
+  runApp(const PreviewExampleApp());
+}
 
-  final bytes = generator.build();
-  assert(bytes.isNotEmpty);
+class PreviewExampleApp extends StatelessWidget {
+  const PreviewExampleApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(
+        printWidth: 406,
+        labelLength: 203,
+        printDensity: CpclPrintDensity.d8,
+      ),
+      commands: const [
+        CpclBox(x0: 8, y0: 8, x1: 398, y1: 195, thickness: 2),
+        CpclText(x: 20, y: 20, text: 'Hello World!'),
+        CpclLine(x0: 20, y0: 50, x1: 386, y1: 50, thickness: 2),
+        CpclBarcode(
+          x: 20,
+          y: 70,
+          data: '12345',
+          options: CpclBarcodeOptions(height: 50),
+        ),
+        CpclQrCode(x: 300, y: 70, data: 'https://example.com'),
+      ],
+    );
+
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(title: const Text('CPCL Preview')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: CpclPreview(generator: generator),
+          ),
+        ),
+      ),
+    );
+  }
 }

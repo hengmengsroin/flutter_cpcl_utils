@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- Add declarative `CpclConfiguration` and `commands` support for config-driven label generation.
+- Add typed declarative commands such as `CpclText`, `CpclBarcode`, `CpclQrCode`, `CpclBox`, and `CpclKhmerText`.
+- Add async `buildAsync()` and `previewAsync()` support for labels that include Flutter-rendered text.
+- Add `CpclPreview` for live in-app label previews and `CpclPreviewService` for PNG or PDF export.
+- Refresh the example app, README, and tests to cover the new generator and preview APIs.
+
 ## 0.1.0
 
 - Replace the default package template with a usable CPCL command generator.

@@ -64,3 +64,16 @@ enum CpclCountryCode {
 
   final String value;
 }
+
+enum CpclPrintDensity {
+  d6(152),
+  d8(203),
+  d12(300),
+  d24(600);
+
+  const CpclPrintDensity(this.dpi);
+
+  final int dpi;
+}
+
+enum CpclAlignment { left, center, right }

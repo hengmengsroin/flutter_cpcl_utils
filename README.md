@@ -17,6 +17,98 @@ This package follows the same general shape as `flutter_tsc_utils`, but targets 
 
 ## Usage
 
+### Declarative Generator
+
+```dart
+import 'package:flutter_cpcl_utils/flutter_cpcl_utils.dart';
+
+Future<void> main() async {
+  final generator = CpclGenerator(
+    config: const CpclConfiguration(
+      printWidth: 406,
+      labelLength: 203,
+      printDensity: CpclPrintDensity.d8,
+    ),
+    commands: const [
+      CpclText(x: 20, y: 20, text: 'Hello World!'),
+      CpclBarcode(
+        x: 20,
+        y: 60,
+        data: '12345',
+        options: CpclBarcodeOptions(height: 50),
+      ),
+    ],
+  );
+
+  final bytes = await generator.buildAsync();
+  // Send bytes over Bluetooth, USB, or TCP to the printer.
+}
+```
+
+`CpclConfiguration` automatically writes the CPCL header, `PAGE-WIDTH`, `FORM`, and `PRINT` commands for you.
+
+### Live Preview Widget
+
+For declarative labels, you can render a live Flutter preview locally:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_cpcl_utils/flutter_cpcl_utils.dart';
+
+class LabelPreviewScreen extends StatelessWidget {
+  LabelPreviewScreen({super.key});
+
+  final generator = CpclGenerator(
+    config: const CpclConfiguration(
+      printWidth: 406,
+      labelLength: 203,
+      printDensity: CpclPrintDensity.d8,
+    ),
+    commands: const [
+      CpclText(x: 20, y: 20, text: 'Hello World!'),
+      CpclBarcode(
+        x: 20,
+        y: 60,
+        data: '12345',
+        options: CpclBarcodeOptions(height: 50),
+      ),
+      CpclQrCode(x: 290, y: 50, data: 'https://example.com'),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: CpclPreview(generator: generator),
+        ),
+      ),
+    );
+  }
+}
+```
+
+`CpclPreview` re-renders whenever the widget rebuilds. It currently targets the declarative `config + commands` API, which gives the previewer a structured layout model to paint.
+
+### Preview Export
+
+You can also render the preview to PNG or PDF bytes without showing the widget:
+
+```dart
+final response = await CpclPreviewService.renderFromGenerator(
+  generator,
+  outputFormat: CpclPreviewOutputFormat.pdf,
+);
+
+await File('label.pdf').writeAsBytes(response.data);
+```
+
+### Fluent Builder
+
+If you prefer the existing chainable style, it still works:
+
 ```dart
 import 'package:flutter_cpcl_utils/flutter_cpcl_utils.dart';
 
@@ -40,24 +132,11 @@ Future<void> main() async {
       ),
     )
     ..text(24, 76, 'Customer: John Doe')
-    ..text(24, 106, 'Phone: 012 345 678')
-    ..text(24, 136, 'Address: 123 Market Street')
-    ..text(24, 166, 'Phnom Penh, Cambodia')
-    ..inverseLine(22, 214, 340, 92)
     ..barcode(
       24,
       220,
       'PKG-2026-0001',
       options: const CpclBarcodeOptions(height: 80),
-    )
-    ..qrCode(
-      390,
-      76,
-      'https://tracking.example.com/PKG-2026-0001',
-      options: const CpclQrCodeOptions(
-        ecc: CpclQrErrorCorrection.high,
-        unit: 7,
-      ),
     )
     ..form()
     ..print();
@@ -81,13 +160,15 @@ If your printer uses a different DPI, scale the width and height accordingly.
 
 ## More Commands
 
-The generator now also includes a few common CPCL control commands that are handy for real labels:
+The generator includes both fluent methods and declarative command objects for common CPCL features:
 
 - `contrast()` for darkness tuning
 - `country()` for locale-sensitive printer behavior
 - `setLp()` for line-print text configuration
 - `inverseLine()` for white-on-black highlight areas
 - `verticalBarcode()` for rotated barcode layouts
+- `CpclText`, `CpclBarcode`, `CpclQrCode`, `CpclLine`, `CpclBox`, and `CpclKhmerText` for config-driven labels
+- `CpclPreview` and `CpclPreviewService` for local preview and export
 
 ## Khmer Text
 
@@ -122,6 +203,8 @@ Future<void> printKhmer() async {
 }
 ```
 
+For declarative labels that include `CpclKhmerText`, call `buildAsync()` or `previewAsync()` because Flutter text rendering happens asynchronously.
+
 ## Notes
 
 - CPCL support varies a bit by printer model and firmware.
@@ -130,3 +213,4 @@ Future<void> printKhmer() async {
 - `khmerText()` depends on a Khmer-capable Flutter font such as `NotoSansKhmer`.
 - Text passed to `text()`, `barcode()`, and `qrCode()` is flattened to a single line because CPCL commands are line-oriented.
 - This package is currently aimed at common Zebra-style CPCL command patterns and has not been validated against every vendor-specific CPCL dialect.
+- The preview widget is a local approximation of the declarative command list, not a printer-firmware-exact rasterizer.

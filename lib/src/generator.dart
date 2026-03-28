@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -6,6 +7,7 @@ import 'package:flutter/painting.dart';
 import 'package:image/image.dart' as img;
 
 import 'commands.dart';
+import 'declarative_commands.dart';
 import 'enums.dart';
 import 'label_size.dart';
 import 'options.dart';
@@ -15,23 +17,45 @@ import 'text_style.dart';
 typedef Generator = CpclGenerator;
 
 class CpclGenerator {
-  CpclGenerator({this.newLine = '\r\n', this.codec = latin1})
-    : _commands = CpclCommandBuffer(codec: codec, newLine: newLine);
+  CpclGenerator({
+    this.newLine = '\r\n',
+    this.codec = latin1,
+    this.config,
+    List<CpclCommand> commands = const [],
+  }) : _commands = CpclCommandBuffer(codec: codec, newLine: newLine),
+       _declarativeCommands = List.unmodifiable(commands);
 
   final String newLine;
   final Encoding codec;
+  final CpclConfiguration? config;
   final CpclCommandBuffer _commands;
+  final List<CpclCommand> _declarativeCommands;
+  bool _hasAppliedDeclarativeCommands = false;
+
+  List<CpclCommand> get commands => _declarativeCommands;
 
   CpclGenerator reset() {
     _commands.clear();
+    _hasAppliedDeclarativeCommands = false;
     return this;
   }
 
-  Uint8List build() => _commands.build();
+  Uint8List build() {
+    _applyDeclarativeCommandsSync();
+    return _commands.build();
+  }
+
+  Future<Uint8List> buildAsync() async {
+    await _applyDeclarativeCommandsAsync();
+    return _commands.build();
+  }
 
   List<int> bytes() => build();
 
   String preview() => String.fromCharCodes(build());
+
+  Future<String> previewAsync() async =>
+      String.fromCharCodes(await buildAsync());
 
   CpclGenerator rawBytes(List<int> bytes) {
     _commands.addRawBytes(bytes);
@@ -219,6 +243,122 @@ class CpclGenerator {
   CpclGenerator form() => rawCommand('FORM');
 
   CpclGenerator print() => rawCommand('PRINT');
+
+  void _applyDeclarativeCommandsSync() {
+    if (_hasAppliedDeclarativeCommands) {
+      return;
+    }
+
+    final asyncCommands = _declarativeCommands
+        .where((command) => command.requiresAsync)
+        .toList(growable: false);
+
+    if (asyncCommands.isNotEmpty) {
+      throw StateError(
+        'This label includes async commands. Use buildAsync() or previewAsync() instead.',
+      );
+    }
+
+    _applyConfiguration();
+    for (final command in _declarativeCommands) {
+      command.apply(this);
+    }
+    _finalizeDeclarativeConfiguration();
+    _hasAppliedDeclarativeCommands = true;
+  }
+
+  Future<void> _applyDeclarativeCommandsAsync() async {
+    if (_hasAppliedDeclarativeCommands) {
+      return;
+    }
+
+    _applyConfiguration();
+    for (final command in _declarativeCommands) {
+      await command.applyAsync(this);
+    }
+    _finalizeDeclarativeConfiguration();
+    _hasAppliedDeclarativeCommands = true;
+  }
+
+  void _applyConfiguration() {
+    final currentConfig = config;
+    if (currentConfig == null) {
+      return;
+    }
+
+    initialize(
+      CpclLabelSize(currentConfig.printWidth, currentConfig.labelLength),
+      copies: currentConfig.copies,
+      offset: currentConfig.offset,
+      horizontalDpi: currentConfig.resolvedHorizontalDpi,
+      verticalDpi: currentConfig.resolvedVerticalDpi,
+    );
+
+    final speedValue = currentConfig.speed;
+    if (speedValue != null) {
+      speed(speedValue);
+    }
+
+    final toneValue = currentConfig.tone;
+    if (toneValue != null) {
+      tone(toneValue);
+    }
+
+    final contrastValue = currentConfig.contrast;
+    if (contrastValue != null) {
+      contrast(contrastValue);
+    }
+
+    final countryValue = currentConfig.country;
+    if (countryValue != null) {
+      country(countryValue);
+    }
+
+    final alignmentValue = currentConfig.alignment;
+    switch (alignmentValue) {
+      case CpclAlignment.left:
+        left();
+        break;
+      case CpclAlignment.center:
+        center();
+        break;
+      case CpclAlignment.right:
+        right();
+        break;
+      case null:
+        break;
+    }
+
+    final linePrintOptions = currentConfig.linePrintOptions;
+    if (linePrintOptions != null) {
+      setLp(linePrintOptions);
+    }
+
+    final prefeedValue = currentConfig.prefeed;
+    if (prefeedValue != null) {
+      prefeed(prefeedValue);
+    }
+
+    final postfeedValue = currentConfig.postfeed;
+    if (postfeedValue != null) {
+      postfeed(postfeedValue);
+    }
+  }
+
+  void _finalizeDeclarativeConfiguration() {
+    final currentConfig = config;
+    if (currentConfig == null) {
+      return;
+    }
+
+    if (currentConfig.autoForm) {
+      form();
+    }
+
+    if (currentConfig.autoPrint) {
+      print();
+    }
+  }
 
   void _validateTextStyle(CpclTextStyle style) {
     requireNonNegative(style.size, 'style.size');
