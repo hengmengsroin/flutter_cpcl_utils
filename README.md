@@ -1,21 +1,30 @@
 # flutter_cpcl_utils
 
-Utilities for generating CPCL printer commands from Flutter and Dart.
+Generate CPCL label commands from Flutter, build labels with either a fluent or declarative API, preview them locally in-app, and export preview images as PNG or PDF.
 
-This package follows the same general shape as `flutter_tsc_utils`, but targets CPCL-compatible mobile and label printers.
+This package is aimed at CPCL-compatible mobile and label printers. It focuses on common label-building primitives while still leaving raw command escape hatches for printer-specific behavior.
+
+## Why This Package
+
+- Build CPCL labels with a familiar Dart API
+- Choose between a fluent builder and a declarative `config + commands` style
+- Preview declarative labels directly in Flutter during development
+- Export preview output as PNG or PDF for QA, demos, or sharing
+- Render Khmer and other unsupported printer-font text as bitmaps
 
 ## Features
 
-- Chainable `CpclGenerator` API for building labels
-- Label setup with `initialize()` and `PAGE-WIDTH`
-- Text, lines, boxes, 1D barcodes, and QR codes
-- Typed option objects for barcode, QR, and `SETLP` configuration
-- Bitmap rasterization through `EG`
-- Flutter-rendered `khmerText()` support for Khmer and other Unicode text that printer fonts do not handle well
-- Raw command and raw byte hooks for unsupported CPCL features
+- `CpclGenerator` for CPCL command generation
+- Declarative `CpclConfiguration` and typed commands like `CpclText`, `CpclBarcode`, and `CpclQrCode`
+- Fluent methods for text, boxes, lines, barcodes, QR codes, and printer control commands
+- `CpclPreview` widget for local live preview
+- `CpclPreviewService` for PNG or PDF export
+- Bitmap rasterization through CPCL `EG`
+- `khmerText()` and `CpclKhmerText` for Flutter-rendered Unicode text
+- Raw command and raw byte hooks for unsupported features
 - Input validation for common parameter ranges
 
-## Usage
+## Quick Start
 
 ### Declarative Generator
 
@@ -45,11 +54,37 @@ Future<void> main() async {
 }
 ```
 
-`CpclConfiguration` automatically writes the CPCL header, `PAGE-WIDTH`, `FORM`, and `PRINT` commands for you.
+`CpclConfiguration` automatically writes the CPCL header, `PAGE-WIDTH`, `FORM`, and `PRINT` commands.
 
-### Live Preview Widget
+### Fluent Builder
 
-For declarative labels, you can render a live Flutter preview locally:
+```dart
+import 'package:flutter_cpcl_utils/flutter_cpcl_utils.dart';
+
+Future<void> main() async {
+  final generator = CpclGenerator()
+    ..initialize(const CpclLabelSize(576, 320))
+    ..speed(3)
+    ..contrast(2)
+    ..box(10, 10, 566, 310, thickness: 2)
+    ..text(24, 24, 'SHIP TO')
+    ..barcode(
+      24,
+      220,
+      'PKG-2026-0001',
+      options: const CpclBarcodeOptions(height: 80),
+    )
+    ..form()
+    ..print();
+
+  final bytes = generator.build();
+  // Send bytes over Bluetooth, USB, or TCP to the printer.
+}
+```
+
+## Live Preview
+
+You can preview declarative labels directly inside Flutter:
 
 ```dart
 import 'package:flutter/material.dart';
@@ -90,11 +125,16 @@ class LabelPreviewScreen extends StatelessWidget {
 }
 ```
 
-`CpclPreview` re-renders whenever the widget rebuilds. It currently targets the declarative `config + commands` API, which gives the previewer a structured layout model to paint.
+`CpclPreview` re-renders when the widget rebuilds, which makes it useful during development and hot reload.
 
-### Preview Export
+Important:
+- The preview is a local Flutter approximation of the declarative command list.
+- It is not a printer-firmware-exact CPCL renderer.
+- The preview currently targets the declarative `CpclConfiguration + commands` API.
 
-You can also render the preview to PNG or PDF bytes without showing the widget:
+## Preview Export
+
+You can export the local preview to PNG or PDF bytes:
 
 ```dart
 final response = await CpclPreviewService.renderFromGenerator(
@@ -105,74 +145,11 @@ final response = await CpclPreviewService.renderFromGenerator(
 await File('label.pdf').writeAsBytes(response.data);
 ```
 
-### Fluent Builder
+This is useful for QA snapshots, attachments, internal tooling, and sharing labels without printing.
 
-If you prefer the existing chainable style, it still works:
+## Khmer And Unicode Text
 
-```dart
-import 'package:flutter_cpcl_utils/flutter_cpcl_utils.dart';
-
-Future<void> main() async {
-  final generator = CpclGenerator()
-    ..initialize(const CpclLabelSize(576, 320))
-    ..speed(3)
-    ..tone(1)
-    ..contrast(2)
-    ..country(CpclCountryCode.usa)
-    ..box(10, 10, 566, 310, thickness: 2)
-    ..line(20, 60, 556, 60, thickness: 2)
-    ..text(
-      24,
-      24,
-      'SHIP TO',
-      style: const CpclTextStyle(
-        font: CpclFont.font4,
-        xMultiplier: 2,
-        yMultiplier: 2,
-      ),
-    )
-    ..text(24, 76, 'Customer: John Doe')
-    ..barcode(
-      24,
-      220,
-      'PKG-2026-0001',
-      options: const CpclBarcodeOptions(height: 80),
-    )
-    ..form()
-    ..print();
-
-  final bytes = generator.build();
-  // Send bytes over Bluetooth, USB, or TCP to the printer.
-}
-```
-
-## Label Sizing
-
-`CpclLabelSize(width, height)` uses printer dots, not millimeters.
-
-Common starting points at 203 DPI:
-
-- `const CpclLabelSize(384, 240)` for a 2 inch by 1.25 inch label
-- `const CpclLabelSize(576, 320)` for roughly a 3 inch by 1.6 inch label
-- `const CpclLabelSize(812, 1218)` for a 4 inch by 6 inch shipping label
-
-If your printer uses a different DPI, scale the width and height accordingly.
-
-## More Commands
-
-The generator includes both fluent methods and declarative command objects for common CPCL features:
-
-- `contrast()` for darkness tuning
-- `country()` for locale-sensitive printer behavior
-- `setLp()` for line-print text configuration
-- `inverseLine()` for white-on-black highlight areas
-- `verticalBarcode()` for rotated barcode layouts
-- `CpclText`, `CpclBarcode`, `CpclQrCode`, `CpclLine`, `CpclBox`, and `CpclKhmerText` for config-driven labels
-- `CpclPreview` and `CpclPreviewService` for local preview and export
-
-## Khmer Text
-
-For Khmer, the safest path is rendering text with Flutter and printing it as a bitmap:
+For Khmer and other scripts that printer fonts do not handle well, render text with Flutter and print it as a bitmap:
 
 ```dart
 import 'package:flutter/painting.dart';
@@ -203,14 +180,35 @@ Future<void> printKhmer() async {
 }
 ```
 
-For declarative labels that include `CpclKhmerText`, call `buildAsync()` or `previewAsync()` because Flutter text rendering happens asynchronously.
+For declarative labels that include `CpclKhmerText`, use `buildAsync()` or `previewAsync()`.
+
+## Label Sizing
+
+All measurements in this package use printer dots, not millimeters.
+
+Common starting points at 203 DPI:
+
+- `const CpclLabelSize(384, 240)` for a 2 inch by 1.25 inch label
+- `const CpclLabelSize(576, 320)` for roughly a 3 inch by 1.6 inch label
+- `const CpclLabelSize(812, 1218)` for a 4 inch by 6 inch shipping label
+
+If your printer uses a different DPI, scale width and height accordingly.
+
+## Supported Building Blocks
+
+Common CPCL features available through the fluent and declarative APIs include:
+
+- Text and rotated text
+- Lines, boxes, and inverse blocks
+- 1D barcodes and QR codes
+- Printer controls such as `speed()`, `tone()`, `contrast()`, `country()`, and `setLp()`
+- Bitmap printing
+- Raw commands and raw bytes
 
 ## Notes
 
-- CPCL support varies a bit by printer model and firmware.
-- Coordinates, widths, heights, and feed values in this package are expressed in printer dots.
-- This package currently focuses on the most common building blocks and leaves escape hatches through `rawCommand()` and `rawBytes()`.
-- `khmerText()` depends on a Khmer-capable Flutter font such as `NotoSansKhmer`.
+- CPCL support varies by printer model and firmware.
 - Text passed to `text()`, `barcode()`, and `qrCode()` is flattened to a single line because CPCL commands are line-oriented.
-- This package is currently aimed at common Zebra-style CPCL command patterns and has not been validated against every vendor-specific CPCL dialect.
-- The preview widget is a local approximation of the declarative command list, not a printer-firmware-exact rasterizer.
+- This package focuses on common CPCL building blocks and leaves unsupported features to `rawCommand()` and `rawBytes()`.
+- `khmerText()` depends on a Khmer-capable Flutter font such as `NotoSansKhmer`.
+- The preview widget and export service are intended for development convenience, not printer-accurate certification.

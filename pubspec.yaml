@@ -1,5 +1,5 @@
 name: flutter_cpcl_utils
-description: Utilities for generating CPCL printer commands from Flutter and Dart.
+description: Generate CPCL label commands, preview labels in Flutter, and export preview PNG or PDF files.
 version: 0.2.0
 homepage: https://github.com/hengmengsroin/flutter_cpcl_utils
 repository: https://github.com/hengmengsroin/flutter_cpcl_utils
