@@ -117,7 +117,13 @@ class LabelPreviewScreen extends StatelessWidget {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: CpclPreview(generator: generator),
+          child: CpclPreview(
+            generator: generator,
+            enableInteraction: true,
+            framePadding: const EdgeInsets.all(20),
+            previewSurfaceColor: Color(0xFFF6F7F9),
+            showCheckerboard: true,
+          ),
         ),
       ),
     );
@@ -125,7 +131,7 @@ class LabelPreviewScreen extends StatelessWidget {
 }
 ```
 
-`CpclPreview` re-renders when the widget rebuilds, which makes it useful during development and hot reload.
+`CpclPreview` keeps the rendered preview stable across ordinary rebuilds, supports pinch-to-zoom for larger labels, and can draw a subtle preview surface behind the label so white stock is easier to see.
 
 Important:
 - The preview is a local Flutter approximation of the declarative command list.

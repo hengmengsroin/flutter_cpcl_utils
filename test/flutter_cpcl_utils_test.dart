@@ -321,6 +321,125 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('builds CpclPreview widget inside bounded layouts', (
+    tester,
+  ) async {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(printWidth: 406, labelLength: 203),
+      commands: const [CpclText(x: 20, y: 20, text: 'Preview')],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 240,
+              height: 240,
+              child: CpclPreview(generator: generator),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.byType(CpclPreview), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('builds CpclPreview with interactive mode enabled', (
+    tester,
+  ) async {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(printWidth: 406, labelLength: 203),
+      commands: const [CpclText(x: 20, y: 20, text: 'Preview')],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 280,
+            height: 280,
+            child: CpclPreview(
+              generator: generator,
+              enableInteraction: true,
+              maxScale: 6,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    final preview = tester.widget<CpclPreview>(find.byType(CpclPreview));
+
+    expect(preview.enableInteraction, isTrue);
+    expect(preview.maxScale, 6);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('accepts custom preview frame styling', (tester) async {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(printWidth: 406, labelLength: 203),
+      commands: const [CpclText(x: 20, y: 20, text: 'Preview')],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CpclPreview(
+            generator: generator,
+            framePadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 20,
+            ),
+            borderRadius: 20,
+            boxShadow: const [],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.byType(CpclPreview), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('supports preview surface styling', (tester) async {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(printWidth: 406, labelLength: 203),
+      commands: const [CpclText(x: 20, y: 20, text: 'Preview')],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CpclPreview(
+            generator: generator,
+            previewSurfaceColor: const Color(0xFFF6F7F9),
+            showCheckerboard: true,
+            checkerColor: const Color(0xFFE3E8EE),
+            checkerSize: 10,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    final preview = tester.widget<CpclPreview>(find.byType(CpclPreview));
+
+    expect(preview.previewSurfaceColor, const Color(0xFFF6F7F9));
+    expect(preview.showCheckerboard, isTrue);
+    expect(preview.checkerSize, 10);
+    expect(tester.takeException(), isNull);
+  });
+
   test('rejects invalid numeric ranges', () {
     expect(() => CpclGenerator().speed(6), throwsA(isA<RangeError>()));
     expect(

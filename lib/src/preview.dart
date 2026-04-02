@@ -31,29 +31,86 @@ class CpclPreviewResponse {
   final String mimeType;
 }
 
-class CpclPreview extends StatelessWidget {
+class CpclPreview extends StatefulWidget {
   const CpclPreview({
     super.key,
     required this.generator,
     this.backgroundColor = Colors.white,
     this.borderColor = const Color(0xFFD0D7DE),
+    this.previewSurfaceColor = const Color(0xFFF4F6F8),
+    this.showCheckerboard = false,
+    this.checkerColor = const Color(0xFFE7EBF0),
+    this.checkerSize = 12,
     this.loading,
     this.errorBuilder,
     this.fit = BoxFit.contain,
     this.pixelRatio = 2,
+    this.framePadding = const EdgeInsets.all(_defaultFramePadding),
+    this.borderRadius = _defaultBorderRadius,
+    this.boxShadow = const [
+      BoxShadow(color: Color(0x14000000), blurRadius: 18, offset: Offset(0, 8)),
+    ],
+    this.enableInteraction = false,
+    this.minScale = 1,
+    this.maxScale = 4,
+    this.interactionBoundaryMargin = const EdgeInsets.all(24),
   });
 
   final CpclGenerator generator;
   final Color backgroundColor;
   final Color borderColor;
+  final Color previewSurfaceColor;
+  final bool showCheckerboard;
+  final Color checkerColor;
+  final double checkerSize;
   final Widget? loading;
   final Widget Function(BuildContext context, Object error)? errorBuilder;
   final BoxFit fit;
   final double pixelRatio;
+  final EdgeInsets framePadding;
+  final double borderRadius;
+  final List<BoxShadow> boxShadow;
+  final bool enableInteraction;
+  final double minScale;
+  final double maxScale;
+  final EdgeInsets interactionBoundaryMargin;
+  static const double _defaultFramePadding = 16;
+  static const double _defaultBorderRadius = 12;
+
+  @override
+  State<CpclPreview> createState() => _CpclPreviewState();
+}
+
+class _CpclPreviewState extends State<CpclPreview> {
+  late Future<Uint8List> _previewFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _previewFuture = _createPreviewFuture();
+  }
+
+  @override
+  void didUpdateWidget(covariant CpclPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.generator != widget.generator ||
+        oldWidget.backgroundColor != widget.backgroundColor ||
+        oldWidget.pixelRatio != widget.pixelRatio) {
+      _previewFuture = _createPreviewFuture();
+    }
+  }
+
+  Future<Uint8List> _createPreviewFuture() {
+    return CpclPreviewService.renderPngFromGenerator(
+      widget.generator,
+      backgroundColor: widget.backgroundColor,
+      pixelRatio: widget.pixelRatio,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final config = generator.config;
+    final config = widget.generator.config;
     if (config == null) {
       return _buildError(
         context,
@@ -64,11 +121,7 @@ class CpclPreview extends StatelessWidget {
     }
 
     return FutureBuilder<Uint8List>(
-      future: CpclPreviewService.renderPngFromGenerator(
-        generator,
-        backgroundColor: backgroundColor,
-        pixelRatio: pixelRatio,
-      ),
+      future: _previewFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _buildError(context, snapshot.error!);
@@ -77,7 +130,7 @@ class CpclPreview extends StatelessWidget {
         if (!snapshot.hasData) {
           return Center(
             child:
-                loading ??
+                widget.loading ??
                 const SizedBox(
                   width: 24,
                   height: 24,
@@ -86,48 +139,116 @@ class CpclPreview extends StatelessWidget {
           );
         }
 
-        return AspectRatio(
-          aspectRatio: config.printWidth / config.labelLength,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              border: Border.all(color: borderColor),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x14000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 8),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: FittedBox(
-                fit: fit,
-                child: Image.memory(
-                  snapshot.data!,
-                  gaplessPlayback: true,
-                  filterQuality: FilterQuality.none,
+        final labelSize = Size(
+          config.printWidth.toDouble(),
+          config.labelLength.toDouble(),
+        );
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final hasBoundedWidth = constraints.maxWidth.isFinite;
+            final hasBoundedHeight = constraints.maxHeight.isFinite;
+            final availableSize = Size(
+              hasBoundedWidth
+                  ? math.max(
+                      1,
+                      constraints.maxWidth - widget.framePadding.horizontal,
+                    )
+                  : labelSize.width,
+              hasBoundedHeight
+                  ? math.max(
+                      1,
+                      constraints.maxHeight - widget.framePadding.vertical,
+                    )
+                  : labelSize.height,
+            );
+            final destinationSize = applyBoxFit(
+              widget.fit,
+              labelSize,
+              availableSize,
+            ).destination;
+
+            final preview = _buildPreviewFrame(
+              width: destinationSize.width,
+              height: destinationSize.height,
+              bytes: snapshot.data!,
+            );
+            final previewContent = widget.enableInteraction
+                ? InteractiveViewer(
+                    minScale: widget.minScale,
+                    maxScale: widget.maxScale,
+                    boundaryMargin: widget.interactionBoundaryMargin,
+                    child: preview,
+                  )
+                : preview;
+
+            if (!hasBoundedWidth && !hasBoundedHeight) {
+              return previewContent;
+            }
+
+            return DecoratedBox(
+              decoration: BoxDecoration(color: widget.previewSurfaceColor),
+              child: CustomPaint(
+                painter: widget.showCheckerboard
+                    ? _CheckerboardPainter(
+                        color: widget.checkerColor,
+                        squareSize: widget.checkerSize,
+                      )
+                    : null,
+                child: SizedBox.expand(
+                  child: Padding(
+                    padding: widget.framePadding,
+                    child: Center(child: previewContent),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
   }
 
+  Widget _buildPreviewFrame({
+    required double width,
+    required double height,
+    required Uint8List bytes,
+  }) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: widget.backgroundColor,
+        border: Border.all(color: widget.borderColor),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        boxShadow: widget.boxShadow,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Image.memory(
+            bytes,
+            width: width,
+            height: height,
+            fit: BoxFit.fill,
+            gaplessPlayback: true,
+            filterQuality: FilterQuality.none,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildError(BuildContext context, Object error) {
-    if (errorBuilder != null) {
-      return errorBuilder!(context, error);
+    if (widget.errorBuilder != null) {
+      return widget.errorBuilder!(context, error);
     }
 
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFFFF5F5),
         border: Border.all(color: const Color(0xFFF1AEB5)),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -137,6 +258,39 @@ class CpclPreview extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _CheckerboardPainter extends CustomPainter {
+  const _CheckerboardPainter({required this.color, required this.squareSize});
+
+  final Color color;
+  final double squareSize;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final cellSize = math.max(2.0, squareSize);
+    final columns = (size.width / cellSize).ceil();
+    final rows = (size.height / cellSize).ceil();
+
+    for (var row = 0; row < rows; row++) {
+      for (var column = 0; column < columns; column++) {
+        if ((row + column).isOdd) {
+          continue;
+        }
+
+        canvas.drawRect(
+          Rect.fromLTWH(column * cellSize, row * cellSize, cellSize, cellSize),
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CheckerboardPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.squareSize != squareSize;
   }
 }
 

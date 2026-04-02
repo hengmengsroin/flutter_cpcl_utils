@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+- Improve `CpclPreview` layout stability inside bounded widgets and avoid rerender churn on ordinary rebuilds.
+- Add preview customization options for frame padding, border radius, box shadow, zoom interaction, and preview surface styling.
+- Add optional checkerboard preview background to make light labels easier to inspect on screen.
+- Refresh README examples and expand widget test coverage for preview behavior.
+
 ## 0.2.0
 
 - Add declarative `CpclConfiguration` and `commands` support for config-driven label generation.
