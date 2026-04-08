@@ -1,3 +1,7 @@
+/// Utilities for generating CPCL commands, previewing labels, and building
+/// declarative print payloads for compatible printers.
+library;
+
 export 'src/commands.dart';
 export 'src/declarative_commands.dart';
 export 'src/enums.dart';

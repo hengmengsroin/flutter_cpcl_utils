@@ -1,3 +1,4 @@
+/// Supported text rotations for CPCL text commands.
 enum CpclRotation {
   angle0('TEXT'),
   angle90('TEXT90'),
@@ -6,9 +7,11 @@ enum CpclRotation {
 
   const CpclRotation(this.textCommand);
 
+  /// CPCL text command token for this rotation.
   final String textCommand;
 }
 
+/// Built-in CPCL bitmap/text font identifiers.
 enum CpclFont {
   font0(0),
   font1(1),
@@ -21,9 +24,11 @@ enum CpclFont {
 
   const CpclFont(this.value);
 
+  /// Numeric font value expected by CPCL.
   final int value;
 }
 
+/// Barcode formats supported by `BARCODE` and `VBARCODE`.
 enum CpclBarcodeType {
   code128('128'),
   code39('39'),
@@ -36,9 +41,11 @@ enum CpclBarcodeType {
 
   const CpclBarcodeType(this.value);
 
+  /// CPCL barcode type token.
   final String value;
 }
 
+/// Error-correction levels for CPCL QR codes.
 enum CpclQrErrorCorrection {
   low('L'),
   medium('M'),
@@ -47,9 +54,11 @@ enum CpclQrErrorCorrection {
 
   const CpclQrErrorCorrection(this.value);
 
+  /// CPCL QR error correction token.
   final String value;
 }
 
+/// Country code values accepted by the CPCL `COUNTRY` command.
 enum CpclCountryCode {
   usa('USA'),
   france('FRANCE'),
@@ -62,9 +71,11 @@ enum CpclCountryCode {
 
   const CpclCountryCode(this.value);
 
+  /// CPCL country token.
   final String value;
 }
 
+/// Common printer density presets in dots per inch (DPI).
 enum CpclPrintDensity {
   d6(152),
   d8(203),
@@ -73,7 +84,9 @@ enum CpclPrintDensity {
 
   const CpclPrintDensity(this.dpi);
 
+  /// The dots-per-inch value represented by this preset.
   final int dpi;
 }
 
+/// Alignment presets for text rendered by line-print mode.
 enum CpclAlignment { left, center, right }

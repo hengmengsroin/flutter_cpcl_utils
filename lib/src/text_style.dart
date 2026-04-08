@@ -1,6 +1,8 @@
 import 'enums.dart';
 
+/// Text styling options for CPCL `TEXT` commands.
 class CpclTextStyle {
+  /// Creates a CPCL text style.
   const CpclTextStyle({
     this.font = CpclFont.font0,
     this.size = 0,
@@ -11,12 +13,22 @@ class CpclTextStyle {
        assert(xMultiplier >= 1 && xMultiplier <= 16),
        assert(yMultiplier >= 1 && yMultiplier <= 16);
 
+  /// CPCL font family.
   final CpclFont font;
+
+  /// Font size variant (non-negative).
   final int size;
+
+  /// Text rotation.
   final CpclRotation rotation;
+
+  /// Horizontal magnification multiplier (1 to 16).
   final int xMultiplier;
+
+  /// Vertical magnification multiplier (1 to 16).
   final int yMultiplier;
 
+  /// Returns a copy with selectively replaced properties.
   CpclTextStyle copyWith({
     CpclFont? font,
     int? size,

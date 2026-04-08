@@ -15,23 +15,32 @@ import 'generator.dart';
 import 'options.dart';
 import 'text_style.dart';
 
+/// Output formats supported by [CpclPreviewService].
 enum CpclPreviewOutputFormat {
   png('image/png'),
   pdf('application/pdf');
 
   const CpclPreviewOutputFormat(this.mimeType);
 
+  /// MIME type for the output format.
   final String mimeType;
 }
 
+/// Binary preview payload with MIME metadata.
 class CpclPreviewResponse {
+  /// Creates a preview response.
   const CpclPreviewResponse({required this.data, required this.mimeType});
 
+  /// Encoded preview bytes.
   final Uint8List data;
+
+  /// MIME type for [data].
   final String mimeType;
 }
 
+/// Flutter widget that renders a visual preview from a [CpclGenerator].
 class CpclPreview extends StatefulWidget {
+  /// Creates a CPCL preview widget.
   const CpclPreview({
     super.key,
     required this.generator,
@@ -56,23 +65,58 @@ class CpclPreview extends StatefulWidget {
     this.interactionBoundaryMargin = const EdgeInsets.all(24),
   });
 
+  /// Generator containing declarative commands and configuration.
   final CpclGenerator generator;
+
+  /// Label background color.
   final Color backgroundColor;
+
+  /// Frame border color.
   final Color borderColor;
+
+  /// Color behind the framed preview.
   final Color previewSurfaceColor;
+
+  /// Whether to paint a checkerboard behind the frame.
   final bool showCheckerboard;
+
+  /// Checkerboard square color.
   final Color checkerColor;
+
+  /// Checkerboard square size.
   final double checkerSize;
+
+  /// Optional loading widget.
   final Widget? loading;
+
+  /// Optional error builder.
   final Widget Function(BuildContext context, Object error)? errorBuilder;
+
+  /// Box fit used for the preview content.
   final BoxFit fit;
+
+  /// Render pixel ratio.
   final double pixelRatio;
+
+  /// Padding around the preview frame.
   final EdgeInsets framePadding;
+
+  /// Border radius for the frame.
   final double borderRadius;
+
+  /// Shadow list for the frame.
   final List<BoxShadow> boxShadow;
+
+  /// Whether pinch/zoom interaction is enabled.
   final bool enableInteraction;
+
+  /// Minimum interaction scale.
   final double minScale;
+
+  /// Maximum interaction scale.
   final double maxScale;
+
+  /// Boundary margin for interactive transforms.
   final EdgeInsets interactionBoundaryMargin;
   static const double _defaultFramePadding = 16;
   static const double _defaultBorderRadius = 12;
@@ -294,7 +338,9 @@ class _CheckerboardPainter extends CustomPainter {
   }
 }
 
+/// Utility that renders generator commands to image or PDF bytes.
 class CpclPreviewService {
+  /// Renders a generator to PNG bytes.
   static Future<Uint8List> renderPngFromGenerator(
     CpclGenerator generator, {
     Color backgroundColor = Colors.white,
@@ -314,6 +360,7 @@ class CpclPreviewService {
     return byteData.buffer.asUint8List();
   }
 
+  /// Renders a generator to either PNG or PDF bytes.
   static Future<CpclPreviewResponse> renderFromGenerator(
     CpclGenerator generator, {
     CpclPreviewOutputFormat outputFormat = CpclPreviewOutputFormat.png,
