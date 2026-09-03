@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.3
+
+- Add script-neutral `renderedText()` fluent method on `CpclGenerator`.
+- Add script-neutral `CpclRenderedText` declarative command for config-driven generation and previews.
+- Generalize Flutter-rendered bitmap rasterization to support any script (Khmer, Thai, Arabic, Devanagari, CJK, etc.) or custom font.
+- Maintain full backward compatibility for `khmerText()` and `CpclKhmerText` as aliases/wrappers.
+- Update `CpclPreview` and `CpclPreviewService` to support `CpclRenderedText` with identical rendering semantics.
+- Add architecture documentation in `docs/rendered_text_compatibility.md`.
+
 ## 0.2.2
 
 - Improve package API documentation coverage with comprehensive dartdoc comments across exported types.

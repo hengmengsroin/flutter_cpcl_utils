@@ -10,7 +10,7 @@ This package is aimed at CPCL-compatible mobile and label printers. It focuses o
 - Choose between a fluent builder and a declarative `config + commands` style
 - Preview declarative labels directly in Flutter during development
 - Export preview output as PNG or PDF for QA, demos, or sharing
-- Render Khmer and other unsupported printer-font text as bitmaps
+- Render any Flutter-supported script (Khmer, Thai, Arabic, CJK, etc.) or custom font as a bitmap
 
 ## Features
 
@@ -20,7 +20,7 @@ This package is aimed at CPCL-compatible mobile and label printers. It focuses o
 - `CpclPreview` widget for local live preview
 - `CpclPreviewService` for PNG or PDF export
 - Bitmap rasterization through CPCL `EG`
-- `khmerText()` and `CpclKhmerText` for Flutter-rendered Unicode text
+- `renderedText()` and `CpclRenderedText` for Flutter-rendered Unicode text (with `khmerText()` and `CpclKhmerText` preserved as backward-compatible aliases)
 - Raw command and raw byte hooks for unsupported features
 - Input validation for common parameter ranges
 
@@ -153,22 +153,22 @@ await File('label.pdf').writeAsBytes(response.data);
 
 This is useful for QA snapshots, attachments, internal tooling, and sharing labels without printing.
 
-## Khmer And Unicode Text
+## Rendered Text And Unicode Support
 
-For Khmer and other scripts that printer fonts do not handle well, render text with Flutter and print it as a bitmap:
+For scripts that printer hardware fonts do not natively support (such as Khmer, Thai, Arabic, Devanagari, or CJK) or for custom brand typography, you can render text with Flutter and print it as a monochrome bitmap:
 
 ```dart
 import 'package:flutter/painting.dart';
 import 'package:flutter_cpcl_utils/flutter_cpcl_utils.dart';
 
-Future<void> printKhmer() async {
+Future<void> printRenderedText() async {
   final generator = CpclGenerator()
     ..initialize(const CpclLabelSize(576, 320));
 
-  await generator.khmerText(
+  await generator.renderedText(
     20,
     20,
-    'សួស្តី​ពិភពលោក',
+    'សួស្តី​ពិភពលោក / Hello World',
     options: const CpclRenderedTextOptions(
       style: TextStyle(
         fontSize: 24,
@@ -186,7 +186,27 @@ Future<void> printKhmer() async {
 }
 ```
 
-For declarative labels that include `CpclKhmerText`, use `buildAsync()` or `previewAsync()`.
+For declarative labels that include `CpclRenderedText` (or `CpclKhmerText`), use `buildAsync()` or `previewAsync()`:
+
+```dart
+final generator = CpclGenerator(
+  config: const CpclConfiguration(printWidth: 406, labelLength: 203),
+  commands: const [
+    CpclRenderedText(
+      x: 20,
+      y: 20,
+      text: 'សួស្តី​ពិភពលោក',
+      options: CpclRenderedTextOptions(
+        style: TextStyle(fontSize: 20, color: Color(0xFF000000)),
+      ),
+    ),
+  ],
+);
+
+final bytes = await generator.buildAsync();
+```
+
+> **Backward Compatibility Note:** `khmerText()` and `CpclKhmerText` remain fully supported as wrappers/aliases around `renderedText()` and `CpclRenderedText`. See [`docs/rendered_text_compatibility.md`](docs/rendered_text_compatibility.md) for architectural details.
 
 ## Label Sizing
 
@@ -209,6 +229,7 @@ Common CPCL features available through the fluent and declarative APIs include:
 - 1D barcodes and QR codes
 - Printer controls such as `speed()`, `tone()`, `contrast()`, `country()`, and `setLp()`
 - Bitmap printing
+- Flutter-rendered text (`renderedText()` / `CpclRenderedText`, `khmerText()` / `CpclKhmerText`)
 - Raw commands and raw bytes
 
 ## Notes
@@ -216,5 +237,5 @@ Common CPCL features available through the fluent and declarative APIs include:
 - CPCL support varies by printer model and firmware.
 - Text passed to `text()`, `barcode()`, and `qrCode()` is flattened to a single line because CPCL commands are line-oriented.
 - This package focuses on common CPCL building blocks and leaves unsupported features to `rawCommand()` and `rawBytes()`.
-- `khmerText()` depends on a Khmer-capable Flutter font such as `NotoSansKhmer`.
+- Rendered text depends on a font capable of displaying the requested script or characters (e.g., `NotoSansKhmer` for Khmer).
 - The preview widget and export service are intended for development convenience, not printer-accurate certification.

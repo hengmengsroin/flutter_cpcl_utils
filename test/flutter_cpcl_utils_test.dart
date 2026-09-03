@@ -227,13 +227,13 @@ void main() {
     expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
   });
 
-  test('khmerText renders text through bitmap output', () async {
+  test('renderedText renders text through bitmap output', () async {
     final generator = CpclGenerator();
 
-    await generator.khmerText(
+    await generator.renderedText(
       12,
       18,
-      'សួស្តី',
+      'Hello / ជំរាបសួរ',
       options: const CpclRenderedTextOptions(
         style: TextStyle(fontSize: 20, color: Color(0xFF000000)),
         pixelRatio: 1,
@@ -248,7 +248,100 @@ void main() {
     expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
   });
 
-  test('buildAsync supports declarative async text rendering', () async {
+  test(
+    'khmerText renders text through bitmap output (backward compatibility)',
+    () async {
+      final generator = CpclGenerator();
+
+      await generator.khmerText(
+        12,
+        18,
+        'សួស្តី',
+        options: const CpclRenderedTextOptions(
+          style: TextStyle(fontSize: 20, color: Color(0xFF000000)),
+          pixelRatio: 1,
+        ),
+      );
+
+      final bytes = generator.build();
+      final prefix = _asciiPrefix(bytes, maxLength: 64);
+
+      expect(prefix, startsWith('EG '));
+      expect(bytes.length, greaterThan(prefix.length + 2));
+      expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
+    },
+  );
+
+  test('buildAsync supports declarative CpclRenderedText', () async {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(printWidth: 320, labelLength: 200),
+      commands: const [
+        CpclRenderedText(
+          x: 12,
+          y: 18,
+          text: 'Rendered Unicode / ភាសាខ្មែរ',
+          options: CpclRenderedTextOptions(
+            style: TextStyle(fontSize: 20, color: Color(0xFF000000)),
+            pixelRatio: 1,
+          ),
+        ),
+      ],
+    );
+
+    expect(() => generator.build(), throwsStateError);
+
+    final bytes = await generator.buildAsync();
+    final preview = latin1.decode(bytes);
+
+    expect(preview, startsWith('! 0 203 203 200 1\r\nPAGE-WIDTH 320\r\nEG '));
+    expect(preview, contains('FORM\r\nPRINT\r\n'));
+  });
+
+  test('synchronous build rejects async rendered-text commands', () {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(printWidth: 320, labelLength: 200),
+      commands: const [
+        CpclRenderedText(
+          x: 10,
+          y: 10,
+          text: 'Async Required',
+          options: CpclRenderedTextOptions(
+            style: TextStyle(fontSize: 16, color: Color(0xFF000000)),
+          ),
+        ),
+      ],
+    );
+
+    expect(
+      () => generator.build(),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('includes async commands'),
+        ),
+      ),
+    );
+
+    const renderedCommand = CpclRenderedText(
+      x: 0,
+      y: 0,
+      text: 'Test',
+      options: CpclRenderedTextOptions(style: TextStyle()),
+    );
+    expect(
+      () => renderedCommand.apply(generator),
+      throwsA(
+        isA<UnsupportedError>().having(
+          (e) => e.message,
+          'message',
+          contains('CpclRenderedText must be built with buildAsync()'),
+        ),
+      ),
+    );
+  });
+
+  test('declarative CpclKhmerText retains backward compatibility', () async {
     final generator = CpclGenerator(
       config: const CpclConfiguration(printWidth: 320, labelLength: 200),
       commands: const [
@@ -271,7 +364,67 @@ void main() {
 
     expect(preview, startsWith('! 0 203 203 200 1\r\nPAGE-WIDTH 320\r\nEG '));
     expect(preview, contains('FORM\r\nPRINT\r\n'));
+
+    const khmerCommand = CpclKhmerText(
+      x: 0,
+      y: 0,
+      text: 'សួស្តី',
+      options: CpclRenderedTextOptions(style: TextStyle()),
+    );
+    expect(khmerCommand.requiresAsync, isTrue);
+    expect(
+      () => khmerCommand.apply(generator),
+      throwsA(
+        isA<UnsupportedError>().having(
+          (e) => e.message,
+          'message',
+          contains('CpclKhmerText must be built with buildAsync()'),
+        ),
+      ),
+    );
+    expect(khmerCommand, isA<CpclRenderedText>());
   });
+
+  test(
+    'preview and export support CpclRenderedText and CpclKhmerText',
+    () async {
+      final generator = CpclGenerator(
+        config: const CpclConfiguration(printWidth: 320, labelLength: 200),
+        commands: const [
+          CpclRenderedText(
+            x: 10,
+            y: 10,
+            text: 'Rendered Script',
+            options: CpclRenderedTextOptions(
+              style: TextStyle(fontSize: 16, color: Color(0xFF000000)),
+            ),
+          ),
+          CpclKhmerText(
+            x: 10,
+            y: 40,
+            text: 'អក្សរខ្មែរ',
+            options: CpclRenderedTextOptions(
+              style: TextStyle(fontSize: 16, color: Color(0xFF000000)),
+            ),
+          ),
+        ],
+      );
+
+      final png = await CpclPreviewService.renderFromGenerator(generator);
+      final pdf = await CpclPreviewService.renderFromGenerator(
+        generator,
+        outputFormat: CpclPreviewOutputFormat.pdf,
+      );
+
+      expect(png.mimeType, 'image/png');
+      expect(
+        png.data.take(8).toList(),
+        orderedEquals([137, 80, 78, 71, 13, 10, 26, 10]),
+      );
+      expect(pdf.mimeType, 'application/pdf');
+      expect(latin1.decode(pdf.data.take(4).toList()), '%PDF');
+    },
+  );
 
   test('renders preview export as png and pdf', () async {
     final generator = CpclGenerator(
@@ -307,6 +460,35 @@ void main() {
     final generator = CpclGenerator(
       config: const CpclConfiguration(printWidth: 406, labelLength: 203),
       commands: const [CpclText(x: 20, y: 20, text: 'Preview')],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: CpclPreview(generator: generator)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.byType(CpclPreview), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('builds CpclPreview widget with CpclRenderedText', (
+    tester,
+  ) async {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(printWidth: 406, labelLength: 203),
+      commands: const [
+        CpclRenderedText(
+          x: 20,
+          y: 20,
+          text: 'Rendered Widget Preview',
+          options: CpclRenderedTextOptions(
+            style: TextStyle(fontSize: 16, color: Color(0xFF000000)),
+          ),
+        ),
+      ],
     );
 
     await tester.pumpWidget(

@@ -262,10 +262,10 @@ class CpclBitmap extends CpclCommand {
   }
 }
 
-/// Declarative Khmer text command that renders text using Flutter first.
-class CpclKhmerText extends CpclCommand {
-  /// Creates a Khmer text command.
-  const CpclKhmerText({
+/// Declarative command that renders text using Flutter before outputting as bitmap.
+class CpclRenderedText extends CpclCommand {
+  /// Creates a rendered text command.
+  const CpclRenderedText({
     required this.x,
     required this.y,
     required this.text,
@@ -286,6 +286,32 @@ class CpclKhmerText extends CpclCommand {
 
   @override
   bool get requiresAsync => true;
+
+  @override
+  /// Rendered text commands require asynchronous rendering.
+  void apply(CpclGenerator generator) {
+    throw UnsupportedError('CpclRenderedText must be built with buildAsync().');
+  }
+
+  @override
+  /// Applies this rendered text command asynchronously.
+  Future<void> applyAsync(CpclGenerator generator) {
+    return generator.renderedText(x, y, text, options: options);
+  }
+}
+
+/// Declarative Khmer text command that renders text using Flutter first.
+///
+/// Backward-compatible wrapper for [CpclRenderedText]. Prefer [CpclRenderedText]
+/// for new code.
+class CpclKhmerText extends CpclRenderedText {
+  /// Creates a Khmer text command.
+  const CpclKhmerText({
+    required super.x,
+    required super.y,
+    required super.text,
+    required super.options,
+  });
 
   @override
   /// Khmer text commands require asynchronous rendering.

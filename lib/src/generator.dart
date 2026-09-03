@@ -268,7 +268,10 @@ class CpclGenerator {
   }
 
   /// Renders Flutter text and inserts it as a bitmap.
-  Future<CpclGenerator> khmerText(
+  ///
+  /// This can be used for any script or custom font supported by Flutter,
+  /// including Khmer, Thai, Arabic, CJK, and custom icon fonts.
+  Future<CpclGenerator> renderedText(
     int x,
     int y,
     String value, {
@@ -277,6 +280,17 @@ class CpclGenerator {
     final rendered = await _renderFlutterText(value, options: options);
     return bitmap(x, y, rendered, threshold: options.threshold);
   }
+
+  /// Backward-compatible alias for [renderedText].
+  ///
+  /// Renders Flutter text and inserts it as a bitmap. Prefer [renderedText]
+  /// for new code.
+  Future<CpclGenerator> khmerText(
+    int x,
+    int y,
+    String value, {
+    required CpclRenderedTextOptions options,
+  }) => renderedText(x, y, value, options: options);
 
   /// Appends `FORM`.
   CpclGenerator form() => rawCommand('FORM');

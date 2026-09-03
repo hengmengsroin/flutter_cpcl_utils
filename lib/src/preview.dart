@@ -451,8 +451,8 @@ class CpclPreviewService {
       case CpclText():
         _paintText(canvas, command);
         break;
-      case CpclKhmerText():
-        _paintKhmerText(canvas, command);
+      case CpclRenderedText():
+        _paintRenderedText(canvas, command);
         break;
       case CpclLine():
         _paintLine(canvas, command);
@@ -509,7 +509,7 @@ class CpclPreviewService {
     canvas.restore();
   }
 
-  static void _paintKhmerText(Canvas canvas, CpclKhmerText command) {
+  static void _paintRenderedText(Canvas canvas, CpclRenderedText command) {
     final textPainter = TextPainter(
       textDirection: command.options.textDirection,
       textAlign: command.options.textAlign,
