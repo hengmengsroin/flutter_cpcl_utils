@@ -7,7 +7,7 @@
 - Generalize Flutter-rendered bitmap rasterization to support any script (Khmer, Thai, Arabic, Devanagari, CJK, etc.) or custom font.
 - Maintain full backward compatibility for `khmerText()` and `CpclKhmerText` as aliases/wrappers.
 - Update `CpclPreview` and `CpclPreviewService` to support `CpclRenderedText` with identical rendering semantics.
-- Add architecture documentation in `docs/rendered_text_compatibility.md`.
+- Add architecture documentation in `doc/rendered_text_compatibility.md`.
 
 ## 0.2.2
 

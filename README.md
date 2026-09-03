@@ -206,7 +206,7 @@ final generator = CpclGenerator(
 final bytes = await generator.buildAsync();
 ```
 
-> **Backward Compatibility Note:** `khmerText()` and `CpclKhmerText` remain fully supported as wrappers/aliases around `renderedText()` and `CpclRenderedText`. See [`docs/rendered_text_compatibility.md`](docs/rendered_text_compatibility.md) for architectural details.
+> **Backward Compatibility Note:** `khmerText()` and `CpclKhmerText` remain fully supported as wrappers/aliases around `renderedText()` and `CpclRenderedText`. See [`doc/rendered_text_compatibility.md`](doc/rendered_text_compatibility.md) for architectural details.
 
 ## Label Sizing
 
