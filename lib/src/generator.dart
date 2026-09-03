@@ -157,13 +157,41 @@ class CpclGenerator {
   CpclGenerator right() => rawCommand('RIGHT');
 
   /// Configures line-print mode using `SETLP`.
-  CpclGenerator setLp(CpclLinePrintOptions options) {
+  ///
+  /// Deprecated: In Zebra CPCL, `SETLP` is a utility-session command and should not
+  /// be placed bare inside a page-mode label session (`! 0 ...`).
+  ///
+  /// This method now emits the full utility-session command `! U1 SETLP ...` to prevent
+  /// generating malformed CPCL. Prefer [setLinePrint] in new code.
+  @Deprecated(
+    'Use setLinePrint() to explicitly emit utility-session "! U1 SETLP".',
+  )
+  CpclGenerator setLp(CpclLinePrintOptions options) => setLinePrint(options);
+
+  /// Sets line-print font configuration using the `! U1` utility command prefix.
+  ///
+  /// This is the documented CPCL syntax for utility-session line-print setup
+  /// (e.g. `! U1 SETLP 7 0 24`).
+  CpclGenerator setLinePrint(CpclLinePrintOptions options) {
     requireNonNegative(options.size, 'options.size');
-    requirePositive(options.unitWidth, 'options.unitWidth');
-    requirePositive(options.unitHeight, 'options.unitHeight');
-    return rawCommand(
-      'SETLP ${options.font.value} ${options.size} ${options.unitWidth} ${options.unitHeight}',
-    );
+    requirePositive(options.lineSpacing, 'options.lineSpacing');
+    return rawCommand('! U1 SETLP ${options.formatArguments()}');
+  }
+
+  /// Sets persistent font magnification using `SETMAG`.
+  ///
+  /// [width] and [height] are direct scale factors (`1..16`). Use `0, 0` to
+  /// reset magnification to standard resident font dimensions.
+  ///
+  /// Note: In CPCL, `SETMAG` modifies printer state persistently across labels
+  /// until explicitly reset with `setMag(0, 0)`.
+  CpclGenerator setMag(int width, int height) {
+    if (width == 0 && height == 0) {
+      return rawCommand('SETMAG 0 0');
+    }
+    requireRange(width, 1, 16, 'width');
+    requireRange(height, 1, 16, 'height');
+    return rawCommand('SETMAG $width $height');
   }
 
   /// Adds a `TEXT` command at `[x, y]`.
@@ -178,7 +206,7 @@ class CpclGenerator {
     final hasMagnification = style.xMultiplier > 1 || style.yMultiplier > 1;
 
     if (hasMagnification) {
-      rawCommand('SETMAG ${style.xMultiplier - 1} ${style.yMultiplier - 1}');
+      rawCommand('SETMAG ${style.xMultiplier} ${style.yMultiplier}');
     }
 
     rawCommand(
@@ -211,6 +239,28 @@ class CpclGenerator {
     return rawCommand('INVERSE-LINE $x $y $width $height');
   }
 
+  void _validateBarcodeParameters(
+    int x,
+    int y,
+    CpclBarcodeOptions options,
+    String content,
+  ) {
+    requireRange(x, 0, 65535, 'x');
+    requireRange(y, 0, 65535, 'y');
+    requireRange(options.width, 0, 65535, 'options.width');
+    CpclBarcodeRatio.validateCode(options.ratio);
+    requireRange(options.height, 0, 65535, 'options.height');
+    final sanitized = sanitizeCpclText(content);
+    final encoded = codec.encode(sanitized);
+    if (encoded.length > 8191) {
+      throw ArgumentError.value(
+        content.length,
+        'content',
+        'Barcode data payload exceeds CPCL maximum limit of 8191 bytes (${encoded.length} bytes).',
+      );
+    }
+  }
+
   /// Adds a `BARCODE` command.
   CpclGenerator barcode(
     int x,
@@ -218,11 +268,9 @@ class CpclGenerator {
     String content, {
     CpclBarcodeOptions options = const CpclBarcodeOptions(),
   }) {
-    requirePositive(options.narrow, 'options.narrow');
-    requirePositive(options.wide, 'options.wide');
-    requirePositive(options.height, 'options.height');
+    _validateBarcodeParameters(x, y, options, content);
     return rawCommand(
-      'BARCODE ${options.type.value} ${options.narrow} ${options.wide} ${options.height} $x $y ${sanitizeCpclText(content)}',
+      'BARCODE ${options.type.value} ${options.width} ${options.ratio} ${options.height} $x $y ${sanitizeCpclText(content)}',
     );
   }
 
@@ -233,11 +281,9 @@ class CpclGenerator {
     String content, {
     CpclBarcodeOptions options = const CpclBarcodeOptions(),
   }) {
-    requirePositive(options.narrow, 'options.narrow');
-    requirePositive(options.wide, 'options.wide');
-    requirePositive(options.height, 'options.height');
+    _validateBarcodeParameters(x, y, options, content);
     return rawCommand(
-      'VBARCODE ${options.type.value} ${options.narrow} ${options.wide} ${options.height} $x $y ${sanitizeCpclText(content)}',
+      'VBARCODE ${options.type.value} ${options.width} ${options.ratio} ${options.height} $x $y ${sanitizeCpclText(content)}',
     );
   }
 
@@ -257,13 +303,51 @@ class CpclGenerator {
       ..rawCommand('ENDQR');
   }
 
-  /// Adds an `EG` bitmap command from an [image].
+  /// Adds a `CG` (COMPRESSED-GRAPHICS) bitmap command from an [image].
+  ///
+  /// In Zebra CPCL documentation, this command is named `COMPRESSED-GRAPHICS`,
+  /// but the payload is not algorithmically compressed (no RLE, LZW, or Deflate
+  /// compression is applied by this library). Instead, it sends raw 1-bit binary
+  /// bytes (1 byte per 8 horizontal dots, MSB first), which is twice as compact
+  /// as `EG` hexadecimal ASCII character representation.
   CpclGenerator bitmap(int x, int y, img.Image image, {int threshold = 127}) {
     requireRange(threshold, 0, 255, 'threshold');
     final raster = _rasterize(image, threshold: threshold);
-    _commands.addEncodedText('EG ${raster.widthBytes} ${raster.height} $x $y ');
+    _commands.addEncodedText('CG ${raster.widthBytes} ${raster.height} $x $y ');
     _commands.addRawBytes(raster.bytes);
     _commands.addEncodedText(newLine);
+    return this;
+  }
+
+  /// Adds a `CG` (COMPRESSED-GRAPHICS) command using raw 8-bit binary bitmap data.
+  ///
+  /// Named to align with the official Zebra CPCL `COMPRESSED-GRAPHICS` command name.
+  /// Note: The payload is raw 1-bit binary bitmap data (1 byte per 8 pixels);
+  /// no algorithmic compression (e.g. RLE, LZW, or Deflate) is applied by this library.
+  CpclGenerator compressedGraphics(
+    int x,
+    int y,
+    img.Image image, {
+    int threshold = 127,
+  }) => bitmap(x, y, image, threshold: threshold);
+
+  /// Adds an `EG` (EXPANDED-GRAPHICS) command using ASCII hexadecimal encoding.
+  ///
+  /// In CPCL, `EG` encodes each byte of 1-bit bitmap data as two uppercase
+  /// hexadecimal ASCII characters (`00`..`FF`).
+  CpclGenerator expandedGraphics(
+    int x,
+    int y,
+    img.Image image, {
+    int threshold = 127,
+  }) {
+    requireRange(threshold, 0, 255, 'threshold');
+    final raster = _rasterize(image, threshold: threshold);
+    final hexBuffer = StringBuffer();
+    for (final byte in raster.bytes) {
+      hexBuffer.write(byte.toRadixString(16).padLeft(2, '0').toUpperCase());
+    }
+    rawCommand('EG ${raster.widthBytes} ${raster.height} $x $y $hexBuffer');
     return this;
   }
 
@@ -340,6 +424,15 @@ class CpclGenerator {
       return;
     }
 
+    // In Zebra CPCL, SETLP is a utility-session command. If linePrintOptions is
+    // specified, emit the one-line utility command (! U1 SETLP ...) before beginning
+    // the page-mode label session (! 0 ...) to avoid placing utility commands inside
+    // a page-mode label.
+    final linePrintOptions = currentConfig.linePrintOptions;
+    if (linePrintOptions != null) {
+      setLinePrint(linePrintOptions);
+    }
+
     initialize(
       CpclLabelSize(currentConfig.printWidth, currentConfig.labelLength),
       copies: currentConfig.copies,
@@ -381,11 +474,6 @@ class CpclGenerator {
         break;
       case null:
         break;
-    }
-
-    final linePrintOptions = currentConfig.linePrintOptions;
-    if (linePrintOptions != null) {
-      setLp(linePrintOptions);
     }
 
     final prefeedValue = currentConfig.prefeed;

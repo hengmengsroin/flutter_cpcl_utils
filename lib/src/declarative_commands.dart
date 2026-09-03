@@ -233,7 +233,7 @@ class CpclInverseLine extends CpclCommand {
   }
 }
 
-/// Declarative `EG` bitmap command.
+/// Declarative `CG` (COMPRESSED-GRAPHICS) bitmap command.
 class CpclBitmap extends CpclCommand {
   /// Creates a bitmap command.
   const CpclBitmap({
@@ -259,6 +259,38 @@ class CpclBitmap extends CpclCommand {
   /// Applies this bitmap command to [generator].
   void apply(CpclGenerator generator) {
     generator.bitmap(x, y, image, threshold: threshold);
+  }
+}
+
+/// Declarative `CG` (COMPRESSED-GRAPHICS) command alias.
+typedef CpclCompressedGraphics = CpclBitmap;
+
+/// Declarative `EG` (EXPANDED-GRAPHICS) hexadecimal bitmap command.
+class CpclExpandedGraphics extends CpclCommand {
+  /// Creates an expanded graphics command.
+  const CpclExpandedGraphics({
+    required this.x,
+    required this.y,
+    required this.image,
+    this.threshold = 127,
+  });
+
+  /// X position in dots.
+  final int x;
+
+  /// Y position in dots.
+  final int y;
+
+  /// Source bitmap image.
+  final img.Image image;
+
+  /// Monochrome threshold (`0..255`).
+  final int threshold;
+
+  @override
+  /// Applies this expanded graphics command to [generator].
+  void apply(CpclGenerator generator) {
+    generator.expandedGraphics(x, y, image, threshold: threshold);
   }
 }
 

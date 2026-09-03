@@ -96,8 +96,8 @@ void main() {
       generator.preview(),
       'COUNTRY USA\r\n'
       'CENTER\r\n'
-      'SETLP 2 1 24 24\r\n'
-      'SETMAG 1 2\r\n'
+      '! U1 SETLP 2 1 24\r\n'
+      'SETMAG 2 3\r\n'
       'TEXT90 4 2 10 12 Scaled\r\n'
       'SETMAG 0 0\r\n'
       'LEFT\r\n'
@@ -200,7 +200,7 @@ void main() {
       'PAGE-WIDTH 576\r\n'
       'BOX 10 10 566 310 2\r\n'
       'LINE 20 60 556 60 2\r\n'
-      'SETMAG 1 1\r\n'
+      'SETMAG 2 2\r\n'
       'TEXT 4 0 24 24 SHIP TO\r\n'
       'SETMAG 0 0\r\n'
       'TEXT 0 0 24 76 Customer: John Doe\r\n'
@@ -220,10 +220,10 @@ void main() {
     final bytes = generator.build();
 
     expect(
-      latin1.decode(bytes.sublist(0, 'EG 1 1 10 20 '.length)),
-      'EG 1 1 10 20 ',
+      latin1.decode(bytes.sublist(0, 'CG 1 1 10 20 '.length)),
+      'CG 1 1 10 20 ',
     );
-    expect(bytes['EG 1 1 10 20 '.length], 0xC0);
+    expect(bytes['CG 1 1 10 20 '.length], 0xC0);
     expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
   });
 
@@ -243,7 +243,7 @@ void main() {
     final bytes = generator.build();
     final prefix = _asciiPrefix(bytes, maxLength: 64);
 
-    expect(prefix, startsWith('EG '));
+    expect(prefix, startsWith('CG '));
     expect(bytes.length, greaterThan(prefix.length + 2));
     expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
   });
@@ -266,7 +266,7 @@ void main() {
       final bytes = generator.build();
       final prefix = _asciiPrefix(bytes, maxLength: 64);
 
-      expect(prefix, startsWith('EG '));
+      expect(prefix, startsWith('CG '));
       expect(bytes.length, greaterThan(prefix.length + 2));
       expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
     },
@@ -293,7 +293,7 @@ void main() {
     final bytes = await generator.buildAsync();
     final preview = latin1.decode(bytes);
 
-    expect(preview, startsWith('! 0 203 203 200 1\r\nPAGE-WIDTH 320\r\nEG '));
+    expect(preview, startsWith('! 0 203 203 200 1\r\nPAGE-WIDTH 320\r\nCG '));
     expect(preview, contains('FORM\r\nPRINT\r\n'));
   });
 
@@ -362,7 +362,7 @@ void main() {
     final bytes = await generator.buildAsync();
     final preview = latin1.decode(bytes);
 
-    expect(preview, startsWith('! 0 203 203 200 1\r\nPAGE-WIDTH 320\r\nEG '));
+    expect(preview, startsWith('! 0 203 203 200 1\r\nPAGE-WIDTH 320\r\nCG '));
     expect(preview, contains('FORM\r\nPRINT\r\n'));
 
     const khmerCommand = CpclKhmerText(
@@ -636,6 +636,523 @@ void main() {
         options: CpclQrCodeOptions(unit: 0),
       ),
       throwsA(isA<RangeError>()),
+    );
+  });
+
+  group('CPCL protocol correctness golden tests', () {
+    test(
+      'golden: CG binary exact byte preservation with 0x00, 0x0A, 0x0D, 0x80, 0xFF',
+      () {
+        // 8 pixels wide, 5 rows high -> 1 byte per row, 5 bytes total.
+        final image = img.Image(width: 8, height: 5);
+        img.fill(image, color: img.ColorRgb8(255, 255, 255));
+
+        // Row 0: 0x00 (all white)
+        // Row 1: 0x0A (binary 00001010 -> bits 4 and 6 black)
+        image.setPixelRgb(4, 1, 0, 0, 0);
+        image.setPixelRgb(6, 1, 0, 0, 0);
+        // Row 2: 0x0D (binary 00001101 -> bits 4, 5, 7 black)
+        image.setPixelRgb(4, 2, 0, 0, 0);
+        image.setPixelRgb(5, 2, 0, 0, 0);
+        image.setPixelRgb(7, 2, 0, 0, 0);
+        // Row 3: 0x80 (binary 10000000 -> bit 0 black)
+        image.setPixelRgb(0, 3, 0, 0, 0);
+        // Row 4: 0xFF (binary 11111111 -> all 8 pixels black)
+        for (var x = 0; x < 8; x++) {
+          image.setPixelRgb(x, 4, 0, 0, 0);
+        }
+
+        final generator = CpclGenerator()..bitmap(10, 20, image);
+        final bytes = generator.build();
+
+        const prefix = 'CG 1 5 10 20 ';
+        expect(latin1.decode(bytes.sublist(0, prefix.length)), prefix);
+
+        final payload = bytes.sublist(prefix.length, prefix.length + 5);
+        expect(payload, [0x00, 0x0A, 0x0D, 0x80, 0xFF]);
+
+        // Command terminator must be exact CRLF
+        expect(latin1.decode(bytes.sublist(prefix.length + 5)), '\r\n');
+      },
+    );
+
+    test(
+      'golden: CG padded image width calculation (10px wide -> 2 bytes/row)',
+      () {
+        // 10 pixels wide -> (10 + 7) ~/ 8 = 2 bytes per row.
+        final image = img.Image(width: 10, height: 2);
+        img.fill(image, color: img.ColorRgb8(255, 255, 255));
+        // First row, pixel 0 black -> 0x80 in byte 0, 0x00 in byte 1
+        image.setPixelRgb(0, 0, 0, 0, 0);
+        // Second row, pixel 9 black (second byte bit 1) -> 0x00 in byte 0, 0x40 in byte 1
+        image.setPixelRgb(9, 1, 0, 0, 0);
+
+        final generator = CpclGenerator()..compressedGraphics(0, 0, image);
+        final bytes = generator.build();
+
+        const prefix = 'CG 2 2 0 0 ';
+        expect(latin1.decode(bytes.sublist(0, prefix.length)), prefix);
+        expect(bytes.sublist(prefix.length, prefix.length + 4), [
+          0x80,
+          0x00,
+          0x00,
+          0x40,
+        ]);
+        expect(latin1.decode(bytes.sublist(prefix.length + 4)), '\r\n');
+      },
+    );
+
+    test('golden: EG expanded graphics uppercase ASCII hex representation', () {
+      final image = img.Image(width: 8, height: 5);
+      img.fill(image, color: img.ColorRgb8(255, 255, 255));
+      image.setPixelRgb(4, 1, 0, 0, 0);
+      image.setPixelRgb(6, 1, 0, 0, 0);
+      image.setPixelRgb(4, 2, 0, 0, 0);
+      image.setPixelRgb(5, 2, 0, 0, 0);
+      image.setPixelRgb(7, 2, 0, 0, 0);
+      image.setPixelRgb(0, 3, 0, 0, 0);
+      for (var x = 0; x < 8; x++) {
+        image.setPixelRgb(x, 4, 0, 0, 0);
+      }
+
+      final generator = CpclGenerator()..expandedGraphics(5, 10, image);
+      expect(generator.preview(), 'EG 1 5 5 10 000A0D80FF\r\n');
+    });
+
+    test('golden: SETMAG factor semantics, 1x clean state, and reset', () {
+      final generator = CpclGenerator()
+        // 1x / 1x does not emit SETMAG if clean
+        ..text(
+          0,
+          0,
+          'Normal 1x',
+          style: const CpclTextStyle(xMultiplier: 1, yMultiplier: 1),
+        )
+        // 2x / 2x emits SETMAG 2 2 and resets to SETMAG 0 0
+        ..text(
+          0,
+          20,
+          'Double 2x',
+          style: const CpclTextStyle(xMultiplier: 2, yMultiplier: 2),
+        )
+        // 2x / 3x asymmetric magnification
+        ..text(
+          0,
+          50,
+          'Tall 2x3',
+          style: const CpclTextStyle(xMultiplier: 2, yMultiplier: 3),
+        )
+        // Direct setMag call
+        ..setMag(3, 4)
+        ..setMag(0, 0);
+
+      expect(
+        generator.preview(),
+        'TEXT 0 0 0 0 Normal 1x\r\n'
+        'SETMAG 2 2\r\n'
+        'TEXT 0 0 0 20 Double 2x\r\n'
+        'SETMAG 0 0\r\n'
+        'SETMAG 2 3\r\n'
+        'TEXT 0 0 0 50 Tall 2x3\r\n'
+        'SETMAG 0 0\r\n'
+        'SETMAG 3 4\r\n'
+        'SETMAG 0 0\r\n',
+      );
+    });
+
+    test('golden: SETLP resident 3-argument and utility prefix ! U1', () {
+      final generator = CpclGenerator()
+        ..setLp(
+          const CpclResidentLinePrintOptions(
+            font: CpclFont.font5,
+            size: 2,
+            lineSpacing: 46,
+          ),
+        )
+        ..setLinePrint(
+          const CpclResidentLinePrintOptions(
+            font: CpclFont.font7,
+            size: 0,
+            lineSpacing: 24,
+          ),
+        );
+
+      expect(
+        generator.preview(),
+        '! U1 SETLP 5 2 46\r\n'
+        '! U1 SETLP 7 0 24\r\n',
+      );
+    });
+
+    test(
+      'golden: SETLP TrueType 4-argument and legacy constructor compatibility',
+      () {
+        final generator = CpclGenerator()
+          // TrueType font emits ! U1 SETLP <fontName> <xScale> <yScale> <lineSpacing>
+          ..setLinePrint(
+            const CpclTrueTypeLinePrintOptions(
+              fontName: 'Swiss721',
+              xScale: 2,
+              yScale: 3,
+              lineSpacing: 36,
+            ),
+          )
+          // Legacy setLp also safely emits ! U1 SETLP with 3 arguments
+          ..setLp(
+            const CpclLinePrintOptions(
+              font: CpclFont.font0,
+              size: 0,
+              unitWidth: 20,
+              unitHeight: 30,
+            ),
+          );
+
+        expect(
+          generator.preview(),
+          '! U1 SETLP Swiss721 2 3 36\r\n'
+          '! U1 SETLP 0 0 30\r\n',
+        );
+      },
+    );
+
+    test(
+      'golden: declarative CpclConfiguration emits ! U1 SETLP before label session',
+      () {
+        final generator = CpclGenerator(
+          config: const CpclConfiguration(
+            printWidth: 400,
+            labelLength: 200,
+            linePrintOptions: CpclResidentLinePrintOptions(
+              font: CpclFont.font7,
+              size: 0,
+              lineSpacing: 24,
+            ),
+          ),
+          commands: const [CpclText(x: 10, y: 10, text: 'Declarative Label')],
+        );
+
+        final preview = generator.preview();
+
+        // Must begin with the utility session command BEFORE the label session header
+        expect(
+          preview,
+          startsWith(
+            '! U1 SETLP 7 0 24\r\n'
+            '! 0 203 203 200 1\r\n'
+            'PAGE-WIDTH 400\r\n',
+          ),
+        );
+        expect(preview, contains('TEXT 0 0 10 10 Declarative Label\r\n'));
+        expect(preview, contains('FORM\r\nPRINT\r\n'));
+
+        // Ensure there is NO bare SETLP inside the label session between header and PRINT
+        final labelSessionBody = preview.substring(
+          preview.indexOf('! 0 203 203'),
+        );
+        expect(labelSessionBody, isNot(contains('SETLP')));
+      },
+    );
+
+    test('golden: BARCODE ratio validation covers complete CPCL code sets', () {
+      // Valid CPCL ratios: 0, 4, 20, 21, 25, 29, 30
+      final generator = CpclGenerator()
+        ..barcode(0, 0, 'R0', options: const CpclBarcodeOptions(ratio: 0))
+        ..barcode(0, 10, 'R4', options: const CpclBarcodeOptions(ratio: 4))
+        ..barcode(0, 20, 'R20', options: const CpclBarcodeOptions(ratio: 20))
+        ..barcode(0, 30, 'R21', options: const CpclBarcodeOptions(ratio: 21))
+        ..barcode(0, 40, 'R25', options: const CpclBarcodeOptions(ratio: 25))
+        ..barcode(0, 50, 'R29', options: const CpclBarcodeOptions(ratio: 29))
+        ..barcode(0, 60, 'R30', options: const CpclBarcodeOptions(ratio: 30));
+
+      expect(
+        generator.preview(),
+        'BARCODE 128 1 0 100 0 0 R0\r\n'
+        'BARCODE 128 1 4 100 0 10 R4\r\n'
+        'BARCODE 128 1 20 100 0 20 R20\r\n'
+        'BARCODE 128 1 21 100 0 30 R21\r\n'
+        'BARCODE 128 1 25 100 0 40 R25\r\n'
+        'BARCODE 128 1 29 100 0 50 R29\r\n'
+        'BARCODE 128 1 30 100 0 60 R30\r\n',
+      );
+
+      // Invalid ratios: 5, 19, 31 must throw RangeError
+      expect(
+        () =>
+            CpclGenerator()
+              ..barcode(0, 0, 'X', options: const CpclBarcodeOptions(ratio: 5)),
+        throwsA(isA<RangeError>()),
+      );
+      expect(
+        () => CpclGenerator()
+          ..barcode(0, 0, 'X', options: const CpclBarcodeOptions(ratio: 19)),
+        throwsA(isA<RangeError>()),
+      );
+      expect(
+        () => CpclGenerator()
+          ..barcode(0, 0, 'X', options: const CpclBarcodeOptions(ratio: 31)),
+        throwsA(isA<RangeError>()),
+      );
+    });
+
+    test(
+      'golden: BARCODE accepts broad command-valid width without artificial bounds',
+      () {
+        // Width 40 is greater than arbitrary 1..32 range and is valid in CPCL
+        final generator = CpclGenerator()
+          ..barcode(
+            10,
+            20,
+            'WIDE-BARCODE',
+            options: const CpclBarcodeOptions(width: 40, ratio: 1),
+          );
+
+        expect(
+          generator.preview(),
+          'BARCODE 128 40 1 100 10 20 WIDE-BARCODE\r\n',
+        );
+      },
+    );
+
+    test('golden: BARCODE Code 39, ratio codes, and VBARCODE parity', () {
+      final generator = CpclGenerator()
+        // Code 39 with ratio 1 (2.0:1)
+        ..barcode(
+          10,
+          20,
+          'CODE39',
+          options: const CpclBarcodeOptions(
+            type: CpclBarcodeType.code39,
+            width: 1,
+            ratio: 1,
+            height: 50,
+          ),
+        )
+        // Ratio code 0 (1.5:1)
+        ..barcode(
+          10,
+          80,
+          'RATIO0',
+          options: const CpclBarcodeOptions(
+            type: CpclBarcodeType.code39,
+            width: 2,
+            ratio: 0,
+            height: 60,
+          ),
+        )
+        // Ratio code 3 (3.0:1) using CpclBarcodeRatio
+        ..barcode(
+          10,
+          150,
+          'RATIO3',
+          options: CpclBarcodeOptions(
+            type: CpclBarcodeType.code39,
+            width: 2,
+            ratio: CpclBarcodeRatio.ratio3_0.code,
+            height: 70,
+          ),
+        )
+        // Vertical barcode parity
+        ..verticalBarcode(
+          200,
+          20,
+          'VCODE',
+          options: const CpclBarcodeOptions(
+            type: CpclBarcodeType.code128,
+            width: 2,
+            ratio: 1,
+            height: 80,
+          ),
+        );
+
+      expect(
+        generator.preview(),
+        'BARCODE 39 1 1 50 10 20 CODE39\r\n'
+        'BARCODE 39 2 0 60 10 80 RATIO0\r\n'
+        'BARCODE 39 2 3 70 10 150 RATIO3\r\n'
+        'VBARCODE 128 2 1 80 200 20 VCODE\r\n',
+      );
+
+      // Verify options backward compatibility getters
+      const options = CpclBarcodeOptions(narrow: 3, wide: 2);
+      expect(options.width, 3);
+      expect(options.narrow, 3);
+      expect(options.ratio, 2);
+      expect(options.wide, 2);
+    });
+
+    test(
+      'golden: BARCODE parameter range validation conforms to Zebra CPCL specification',
+      () {
+        final gen = CpclGenerator();
+
+        // Width 0 accepted
+        expect(
+          () => gen.barcode(
+            10,
+            10,
+            'TEST',
+            options: const CpclBarcodeOptions(width: 0),
+          ),
+          returnsNormally,
+        );
+        // Width 65535 accepted
+        expect(
+          () => gen.barcode(
+            10,
+            10,
+            'TEST',
+            options: const CpclBarcodeOptions(width: 65535),
+          ),
+          returnsNormally,
+        );
+        // Width 65536 rejected
+        expect(
+          () => gen.barcode(
+            10,
+            10,
+            'TEST',
+            options: const CpclBarcodeOptions(width: 65536),
+          ),
+          throwsA(isA<RangeError>()),
+        );
+        // Width -1 rejected
+        expect(
+          () => gen.barcode(
+            10,
+            10,
+            'TEST',
+            options: const CpclBarcodeOptions(width: -1),
+          ),
+          throwsA(isA<RangeError>()),
+        );
+
+        // Height 0 accepted
+        expect(
+          () => gen.barcode(
+            10,
+            10,
+            'TEST',
+            options: const CpclBarcodeOptions(height: 0),
+          ),
+          returnsNormally,
+        );
+        // Height 65535 accepted
+        expect(
+          () => gen.barcode(
+            10,
+            10,
+            'TEST',
+            options: const CpclBarcodeOptions(height: 65535),
+          ),
+          returnsNormally,
+        );
+        // Height -1 rejected
+        expect(
+          () => gen.barcode(
+            10,
+            10,
+            'TEST',
+            options: const CpclBarcodeOptions(height: -1),
+          ),
+          throwsA(isA<RangeError>()),
+        );
+        // Height 65536 rejected
+        expect(
+          () => gen.barcode(
+            10,
+            10,
+            'TEST',
+            options: const CpclBarcodeOptions(height: 65536),
+          ),
+          throwsA(isA<RangeError>()),
+        );
+
+        // X 0 accepted
+        expect(() => gen.barcode(0, 10, 'TEST'), returnsNormally);
+        // X 65535 accepted
+        expect(() => gen.barcode(65535, 10, 'TEST'), returnsNormally);
+        // X -1 rejected
+        expect(() => gen.barcode(-1, 10, 'TEST'), throwsA(isA<RangeError>()));
+        // X 65536 rejected
+        expect(
+          () => gen.barcode(65536, 10, 'TEST'),
+          throwsA(isA<RangeError>()),
+        );
+
+        // Equivalent Y tests
+        // Y 0 accepted
+        expect(() => gen.barcode(10, 0, 'TEST'), returnsNormally);
+        // Y 65535 accepted
+        expect(() => gen.barcode(10, 65535, 'TEST'), returnsNormally);
+        // Y -1 rejected
+        expect(() => gen.barcode(10, -1, 'TEST'), throwsA(isA<RangeError>()));
+        // Y 65536 rejected
+        expect(
+          () => gen.barcode(10, 65536, 'TEST'),
+          throwsA(isA<RangeError>()),
+        );
+
+        // VBARCODE uses identical validation rules
+        expect(
+          () => gen.verticalBarcode(
+            0,
+            0,
+            'TEST',
+            options: const CpclBarcodeOptions(width: 0, height: 0),
+          ),
+          returnsNormally,
+        );
+        expect(
+          () => gen.verticalBarcode(-1, 0, 'TEST'),
+          throwsA(isA<RangeError>()),
+        );
+        expect(
+          () => gen.verticalBarcode(0, -1, 'TEST'),
+          throwsA(isA<RangeError>()),
+        );
+        expect(
+          () => gen.verticalBarcode(
+            0,
+            0,
+            'TEST',
+            options: const CpclBarcodeOptions(width: -1),
+          ),
+          throwsA(isA<RangeError>()),
+        );
+        expect(
+          () => gen.verticalBarcode(
+            0,
+            0,
+            'TEST',
+            options: const CpclBarcodeOptions(height: -1),
+          ),
+          throwsA(isA<RangeError>()),
+        );
+
+        // Payload exceeds 8191 bytes rejected
+        final oversizedPayload = 'A' * 8192;
+        expect(
+          () => gen.barcode(10, 10, oversizedPayload),
+          throwsA(isA<ArgumentError>()),
+        );
+        final maxValidPayload = 'A' * 8191;
+        expect(() => gen.barcode(10, 10, maxValidPayload), returnsNormally);
+      },
+    );
+
+    test(
+      'golden: CpclBarcodeOptions alias precedence gives canonical properties priority',
+      () {
+        // width takes precedence over narrow
+        const optionsWithBothWidth = CpclBarcodeOptions(width: 5, narrow: 2);
+        expect(optionsWithBothWidth.width, 5);
+        expect(optionsWithBothWidth.narrow, 5);
+
+        // ratio takes precedence over wide
+        const optionsWithBothRatio = CpclBarcodeOptions(ratio: 3, wide: 1);
+        expect(optionsWithBothRatio.ratio, 3);
+        expect(optionsWithBothRatio.wide, 3);
+      },
     );
   });
 }

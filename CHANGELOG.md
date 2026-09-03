@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **Graphics (Behavior Change)**: `bitmap()`, `renderedText()`, and `khmerText()` now emit standard CPCL `CG` (COMPRESSED-GRAPHICS) with raw 1-bit binary bytes instead of invalid binary data under `EG`. Added `compressedGraphics()` alias and `expandedGraphics()` / `CpclExpandedGraphics` for 7-bit safe uppercase ASCII hexadecimal `EG` output.
+- **Font Magnification (Behavior Change)**: Corrected `SETMAG` factor calculation in `text()` from zero-indexed `(multiplier - 1)` to direct 1-based documented factors (`style.xMultiplier` and `style.yMultiplier`). 2× magnification now emits `SETMAG 2 2` instead of `SETMAG 1 1` (which rendered at 1× on real printers). Magnification resets immediately with `SETMAG 0 0`. Added standalone `setMag(w, h)` for persistent printer state management.
+- **Line Print Mode & Session Correctness (Behavior Change)**: Corrected `SETLP` to adhere to Zebra utility-session rules (`Valid Session Types: Utilities sessions only`).
+  - Added canonical `setLinePrint()` emitting `! U1 SETLP ...`.
+  - In declarative `_applyConfiguration()`, `linePrintOptions` is emitted before the label session header (`! 0 ...`), preventing bare utility commands inside page-mode label bodies.
+  - Deprecated bare `setLp()`, delegating safely to `setLinePrint()`.
+  - Distinguish resident font syntax (`font`, `size`, `lineSpacing`) and TrueType font syntax (`fontName`, `xScale`, `yScale`, `lineSpacing`) via `CpclResidentLinePrintOptions` and `CpclTrueTypeLinePrintOptions`. Legacy `unitWidth` and `unitHeight` parameters are deprecated and retained for source compatibility.
+- **Barcode Semantics & Validation (Behavior Change)**: Corrected parameter semantics for `BARCODE` and `VBARCODE`:
+  - Canonical properties on `CpclBarcodeOptions` are now `width` (narrow bar unit-width, `0..65535`) and `ratio` (wide-to-narrow bar ratio code).
+  - Enforced valid discrete CPCL ratio codes (`0..4` and `20..30`) via `CpclBarcodeRatio` value class.
+  - Enforced documented Zebra Link-OS command-level ranges: width `0..65535`, height `0..65535`, coordinates `0..65535` (rejecting negative coordinates), and maximum payload limit of 8191 bytes.
+  - Legacy `narrow` and `wide` constructor parameters and getters are retained as deprecated source-compatible aliases, with canonical parameters taking precedence.
+- **Architecture Documentation**: Added `doc/cpcl_command_coverage.md` and `doc/adr/0001-cpcl-protocol-command-model.md` documenting CPCL command syntax, session types, and architectural decisions.
+
 ## 0.2.3
 
 - Add script-neutral `renderedText()` fluent method on `CpclGenerator`.

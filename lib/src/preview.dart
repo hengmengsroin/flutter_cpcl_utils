@@ -475,6 +475,17 @@ class CpclPreviewService {
       case CpclBitmap():
         await _paintBitmap(canvas, command);
         break;
+      case CpclExpandedGraphics():
+        await _paintBitmap(
+          canvas,
+          CpclBitmap(
+            x: command.x,
+            y: command.y,
+            image: command.image,
+            threshold: command.threshold,
+          ),
+        );
+        break;
       case CpclRawBytes():
       case CpclRawCommand():
         break;
@@ -707,7 +718,7 @@ class CpclPreviewService {
   static double _barcodeWidth(String data, CpclBarcodeOptions options) {
     return math.max(
       80,
-      (data.length * (options.narrow + options.wide) * 6).toDouble(),
+      (data.length * (options.width + options.ratio) * 6).toDouble(),
     );
   }
 
