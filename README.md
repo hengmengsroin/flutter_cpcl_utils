@@ -19,8 +19,8 @@ This package is aimed at CPCL-compatible mobile and label printers. It focuses o
 - Fluent methods for text, boxes, lines, barcodes, QR codes, and printer control commands
 - `CpclPreview` widget for local live preview
 - `CpclPreviewService` for PNG or PDF export
-- Bitmap rasterization through CPCL `EG`
-- `renderedText()` and `CpclRenderedText` for Flutter-rendered Unicode text (with `khmerText()` and `CpclKhmerText` preserved as backward-compatible aliases)
+- Raw binary bitmap rasterization through standard CPCL `CG` (with `EG` available for ASCII-hex graphics)
+- `renderedText()` and `CpclRenderedText` for Flutter-rendered Unicode text using the corrected bitmap path (with `khmerText()` and `CpclKhmerText` preserved as backward-compatible aliases)
 - Raw command and raw byte hooks for unsupported features
 - Input validation for common parameter ranges
 
@@ -227,8 +227,8 @@ Common CPCL features available through the fluent and declarative APIs include:
 - Text and rotated text
 - Lines, boxes, and inverse blocks
 - 1D barcodes and QR codes
-- Printer controls such as `speed()`, `tone()`, `contrast()`, `country()`, and `setLp()`
-- Bitmap printing
+- Printer controls such as `speed()`, `tone()`, `contrast()`, `country()`, and `setLinePrint()` (prefer `setLinePrint()` over deprecated `setLp()`)
+- Bitmap printing (`bitmap()` / `compressedGraphics()` with `CG`, `expandedGraphics()` with `EG`)
 - Flutter-rendered text (`renderedText()` / `CpclRenderedText`, `khmerText()` / `CpclKhmerText`)
 - Raw commands and raw bytes
 
