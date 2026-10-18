@@ -451,8 +451,8 @@ class CpclPreviewService {
       case CpclText():
         _paintText(canvas, command);
         break;
-      case CpclKhmerText():
-        _paintKhmerText(canvas, command);
+      case CpclRenderedText():
+        _paintRenderedText(canvas, command);
         break;
       case CpclLine():
         _paintLine(canvas, command);
@@ -474,6 +474,17 @@ class CpclPreviewService {
         break;
       case CpclBitmap():
         await _paintBitmap(canvas, command);
+        break;
+      case CpclExpandedGraphics():
+        await _paintBitmap(
+          canvas,
+          CpclBitmap(
+            x: command.x,
+            y: command.y,
+            image: command.image,
+            threshold: command.threshold,
+          ),
+        );
         break;
       case CpclRawBytes():
       case CpclRawCommand():
@@ -509,7 +520,7 @@ class CpclPreviewService {
     canvas.restore();
   }
 
-  static void _paintKhmerText(Canvas canvas, CpclKhmerText command) {
+  static void _paintRenderedText(Canvas canvas, CpclRenderedText command) {
     final textPainter = TextPainter(
       textDirection: command.options.textDirection,
       textAlign: command.options.textAlign,
@@ -551,18 +562,18 @@ class CpclPreviewService {
   }
 
   static void _paintInverseLine(Canvas canvas, CpclInverseLine command) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(
-      Rect.fromLTWH(
-        command.x.toDouble(),
-        command.y.toDouble(),
-        command.width.toDouble(),
-        command.height.toDouble(),
-      ),
-      paint,
+    final rect = Rect.fromLTWH(
+      command.x.toDouble(),
+      command.y.toDouble(),
+      command.width.toDouble(),
+      command.height.toDouble(),
     );
+    // Composite an opaque white layer with difference so RGB inverts and
+    // alpha stays opaque. Drawing the blend directly would also difference
+    // alpha and punch a transparent hole through the label.
+    canvas.saveLayer(rect, Paint()..blendMode = BlendMode.difference);
+    canvas.drawRect(rect, Paint()..color = const Color(0xFFFFFFFF));
+    canvas.restore();
   }
 
   static void _paintBarcode(Canvas canvas, CpclBarcode command) {
@@ -707,7 +718,7 @@ class CpclPreviewService {
   static double _barcodeWidth(String data, CpclBarcodeOptions options) {
     return math.max(
       80,
-      (data.length * (options.narrow + options.wide) * 6).toDouble(),
+      (data.length * (options.width + options.ratio) * 6).toDouble(),
     );
   }
 
