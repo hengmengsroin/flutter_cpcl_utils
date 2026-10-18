@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Preview bitmaps**: `CpclBitmap` and `CpclExpandedGraphics` are drawn as the thresholded black-and-white graphic the printer receives. Gray and color source pixels no longer appear in the preview when they would print as white.
+
 ## 0.2.6
 
 - **Label header (Behavior Change)**: fluent `initialize()` now defaults to 203 DPI, the same 8 dot/mm resolution as `CpclConfiguration` and `CpclPrintDensity.d8`. Pass `horizontalDpi` and `verticalDpi` to keep a different resolution.

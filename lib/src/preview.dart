@@ -651,7 +651,9 @@ class CpclPreviewService {
   }
 
   static Future<void> _paintBitmap(Canvas canvas, CpclBitmap command) async {
-    final png = Uint8List.fromList(img.encodePng(command.image));
+    final png = Uint8List.fromList(
+      img.encodePng(_thresholdForPreview(command.image, command.threshold)),
+    );
     final codec = await ui.instantiateImageCodec(png);
     final frame = await codec.getNextFrame();
     paintImage(
@@ -666,6 +668,27 @@ class CpclPreviewService {
       fit: BoxFit.fill,
       filterQuality: FilterQuality.none,
     );
+  }
+
+  /// Matches printer output: composite onto white stock, then threshold.
+  ///
+  /// The preview used to paint the source image, so gray and color pixels
+  /// appeared on screen even when the CPCL bitmap would print them white.
+  static img.Image _thresholdForPreview(img.Image source, int threshold) {
+    final gray = img.grayscale(img.Image.from(source));
+    final mono = img.Image(width: gray.width, height: gray.height);
+    for (final pixel in gray) {
+      final alpha = pixel.aNormalized.toDouble().clamp(0.0, 1.0);
+      final composited = pixel.r * alpha + 255 * (1 - alpha);
+      mono.setPixel(
+        pixel.x,
+        pixel.y,
+        composited <= threshold
+            ? img.ColorRgb8(0, 0, 0)
+            : img.ColorRgb8(255, 255, 255),
+      );
+    }
+    return mono;
   }
 
   static void _translateForRotation(
