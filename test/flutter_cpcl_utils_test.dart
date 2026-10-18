@@ -258,6 +258,159 @@ void main() {
     expect(pixelByte, 0xA0);
   });
 
+  test('preview thresholds bitmaps to printed black and white', () async {
+    final image = img.Image(width: 2, height: 1, numChannels: 3);
+    image.setPixelRgb(0, 0, 180, 255, 180);
+    image.setPixelRgb(1, 0, 120, 0, 0);
+
+    Future<img.Image> render(int threshold) async {
+      final generator = CpclGenerator(
+        config: const CpclConfiguration(
+          printWidth: 8,
+          labelLength: 4,
+          autoForm: false,
+          autoPrint: false,
+        ),
+        commands: [CpclBitmap(x: 1, y: 1, image: image, threshold: threshold)],
+      );
+      final png = await CpclPreviewService.renderPngFromGenerator(
+        generator,
+        pixelRatio: 1,
+      );
+      return img.decodePng(png)!;
+    }
+
+    final atDefault = await render(127);
+    // Light green is above the threshold, so the printer leaves it white.
+    expect(_isLight(atDefault.getPixel(1, 1)), isTrue);
+    // Dark red is below the threshold, so it prints as black rather than red.
+    expect(_isBlack(atDefault.getPixel(2, 1)), isTrue);
+
+    final darker = await render(250);
+    expect(_isBlack(darker.getPixel(1, 1)), isTrue);
+  });
+
+  test('preview line and box thickness follow CPCL direction', () async {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(
+        printWidth: 40,
+        labelLength: 40,
+        autoForm: false,
+        autoPrint: false,
+      ),
+      commands: const [
+        CpclLine(x0: 4, y0: 4, x1: 20, y1: 4, thickness: 4),
+        CpclLine(x0: 4, y0: 12, x1: 4, y1: 28, thickness: 3),
+        CpclBox(x0: 16, y0: 16, x1: 36, y1: 36, thickness: 4),
+      ],
+    );
+
+    final png = await CpclPreviewService.renderPngFromGenerator(
+      generator,
+      pixelRatio: 1,
+    );
+    final rendered = img.decodePng(png)!;
+
+    // Horizontal line: ink starts on the y coordinate and extends downward.
+    expect(_isLight(rendered.getPixel(10, 3)), isTrue);
+    expect(_isBlack(rendered.getPixel(10, 4)), isTrue);
+    expect(_isBlack(rendered.getPixel(10, 7)), isTrue);
+    expect(_isLight(rendered.getPixel(10, 8)), isTrue);
+
+    // Vertical line: ink starts on the x coordinate and extends to the right.
+    expect(_isLight(rendered.getPixel(3, 18)), isTrue);
+    expect(_isBlack(rendered.getPixel(4, 18)), isTrue);
+    expect(_isBlack(rendered.getPixel(6, 18)), isTrue);
+    expect(_isLight(rendered.getPixel(7, 18)), isTrue);
+
+    // Box thickness stays inside the corner coordinates.
+    expect(_isLight(rendered.getPixel(15, 24)), isTrue);
+    expect(_isBlack(rendered.getPixel(16, 24)), isTrue);
+    expect(_isBlack(rendered.getPixel(19, 24)), isTrue);
+    expect(_isLight(rendered.getPixel(20, 24)), isTrue);
+  });
+
+  test('preview applies center and right alignment', () async {
+    const pageWidth = 200;
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(
+        printWidth: pageWidth,
+        labelLength: 90,
+        alignment: CpclAlignment.left,
+        autoForm: false,
+        autoPrint: false,
+      ),
+      commands: const [
+        CpclBarcode(
+          x: 0,
+          y: 2,
+          data: 'AB',
+          options: CpclBarcodeOptions(height: 16),
+        ),
+        CpclRawCommand('CENTER'),
+        CpclBarcode(
+          x: 0,
+          y: 28,
+          data: 'AB',
+          options: CpclBarcodeOptions(height: 16),
+        ),
+        CpclRawCommand('RIGHT'),
+        CpclBarcode(
+          x: 0,
+          y: 56,
+          data: 'AB',
+          options: CpclBarcodeOptions(height: 16),
+        ),
+        CpclText(x: 0, y: 74, text: 'MMMM'),
+      ],
+    );
+
+    final png = await CpclPreviewService.renderPngFromGenerator(
+      generator,
+      pixelRatio: 1,
+    );
+    final rendered = img.decodePng(png)!;
+    final left = _inkSpan(rendered, top: 2, bottom: 18);
+    final center = _inkSpan(rendered, top: 28, bottom: 44);
+    final right = _inkSpan(rendered, top: 56, bottom: 89);
+
+    expect(left.left, lessThan(20));
+    expect(center.left, greaterThan(40));
+    expect(center.right, lessThan(pageWidth - 20));
+    expect(right.right, greaterThan(pageWidth - 8));
+    expect(right.left, greaterThan(center.left));
+  });
+
+  test('preview shifts the label by the horizontal session offset', () async {
+    final black = img.Image(width: 4, height: 4);
+    img.fill(black, color: img.ColorRgb8(0, 0, 0));
+
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(
+        printWidth: 32,
+        labelLength: 16,
+        offset: 10,
+        autoForm: false,
+        autoPrint: false,
+      ),
+      commands: [CpclBitmap(x: 2, y: 3, image: black)],
+    );
+
+    expect(generator.preview(), startsWith('! 10 203 203 16 1\r\n'));
+
+    final png = await CpclPreviewService.renderPngFromGenerator(
+      generator,
+      pixelRatio: 1,
+    );
+    final rendered = img.decodePng(png)!;
+
+    // The bitmap origin (2, 3) plus the horizontal offset lands at x = 12.
+    expect(_isLight(rendered.getPixel(2, 3)), isTrue);
+    expect(_isBlack(rendered.getPixel(12, 3)), isTrue);
+    expect(_isBlack(rendered.getPixel(15, 6)), isTrue);
+    expect(_isLight(rendered.getPixel(16, 3)), isTrue);
+  });
+
   test('inverseLine emits the documented five-parameter CPCL form', () {
     final generator = CpclGenerator()..inverseLine(0, 45, 145, 45);
 
@@ -1325,6 +1478,39 @@ double _lowestInkFraction(
 
 bool _isLight(img.Pixel pixel) {
   return pixel.a > 200 && pixel.r > 200 && pixel.g > 200 && pixel.b > 200;
+}
+
+bool _isBlack(img.Pixel pixel) {
+  return pixel.a > 200 && pixel.r < 30 && pixel.g < 30 && pixel.b < 30;
+}
+
+({int left, int right}) _inkSpan(
+  img.Image image, {
+  required int top,
+  required int bottom,
+}) {
+  var left = image.width;
+  var right = -1;
+  final lastRow = bottom.clamp(0, image.height);
+  for (var y = top.clamp(0, image.height); y < lastRow; y++) {
+    for (var x = 0; x < image.width; x++) {
+      if (_isLight(image.getPixel(x, y))) {
+        continue;
+      }
+      if (x < left) {
+        left = x;
+      }
+      if (x > right) {
+        right = x;
+      }
+    }
+  }
+  expect(
+    right,
+    isNonNegative,
+    reason: 'expected ink between y $top and $bottom',
+  );
+  return (left: left, right: right);
 }
 
 String _asciiPrefix(List<int> bytes, {required int maxLength}) {

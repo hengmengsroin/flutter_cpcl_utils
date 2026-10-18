@@ -429,8 +429,13 @@ class CpclPreviewService {
       backgroundPaint,
     );
 
+    // The session-header offset shifts the printed fields to the right.
+    // The label stock itself stays in place.
+    canvas.translate(config.offset.toDouble(), 0);
+
+    final justify = _PreviewJustify(config);
     for (final command in generator.commands) {
-      await _paintCommand(canvas, command);
+      await _paintCommand(canvas, command, justify);
     }
 
     return recorder.endRecording().toImage(width, height);
@@ -446,10 +451,14 @@ class CpclPreviewService {
     return config;
   }
 
-  static Future<void> _paintCommand(Canvas canvas, CpclCommand command) async {
+  static Future<void> _paintCommand(
+    Canvas canvas,
+    CpclCommand command,
+    _PreviewJustify justify,
+  ) async {
     switch (command) {
       case CpclText():
-        _paintText(canvas, command);
+        _paintText(canvas, command, justify);
         break;
       case CpclRenderedText():
         _paintRenderedText(canvas, command);
@@ -464,13 +473,13 @@ class CpclPreviewService {
         _paintInverseLine(canvas, command);
         break;
       case CpclBarcode():
-        _paintBarcode(canvas, command);
+        _paintBarcode(canvas, command, justify);
         break;
       case CpclVerticalBarcode():
-        _paintVerticalBarcode(canvas, command);
+        _paintVerticalBarcode(canvas, command, justify);
         break;
       case CpclQrCode():
-        _paintQrCode(canvas, command);
+        _paintQrCode(canvas, command, justify);
         break;
       case CpclBitmap():
         await _paintBitmap(canvas, command);
@@ -486,13 +495,19 @@ class CpclPreviewService {
           ),
         );
         break;
-      case CpclRawBytes():
       case CpclRawCommand():
+        justify.applyCommand(command.command);
+        break;
+      case CpclRawBytes():
         break;
     }
   }
 
-  static void _paintText(Canvas canvas, CpclText command) {
+  static void _paintText(
+    Canvas canvas,
+    CpclText command,
+    _PreviewJustify justify,
+  ) {
     final style = command.style;
     final textPainter = TextPainter(
       textDirection: TextDirection.ltr,
@@ -506,14 +521,21 @@ class CpclPreviewService {
       ),
     )..layout();
 
+    final width = textPainter.width * style.xMultiplier;
+    final height = textPainter.height * style.yMultiplier;
+    final horizontalExtent = switch (style.rotation) {
+      CpclRotation.angle0 || CpclRotation.angle180 => width,
+      CpclRotation.angle90 || CpclRotation.angle270 => height,
+    };
+
     canvas.save();
     _translateForRotation(
       canvas,
-      x: command.x.toDouble(),
+      x: justify.align(command.x.toDouble(), horizontalExtent),
       y: command.y.toDouble(),
       rotation: style.rotation,
-      width: textPainter.width * style.xMultiplier,
-      height: textPainter.height * style.yMultiplier,
+      width: width,
+      height: height,
     );
     canvas.scale(style.xMultiplier.toDouble(), style.yMultiplier.toDouble());
     textPainter.paint(canvas, Offset.zero);
@@ -536,30 +558,76 @@ class CpclPreviewService {
   }
 
   static void _paintLine(Canvas canvas, CpclLine command) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = command.thickness.toDouble()
-      ..style = PaintingStyle.stroke;
+    final paint = Paint()..color = Colors.black;
+    final x0 = command.x0.toDouble();
+    final y0 = command.y0.toDouble();
+    final x1 = command.x1.toDouble();
+    final y1 = command.y1.toDouble();
+    final thickness = math.max(1, command.thickness).toDouble();
+
+    // Horizontal thickness extends downward. Vertical thickness extends
+    // to the right. A centered stroke would paint above or left of the
+    // coordinates the printer uses.
+    if (y0 == y1) {
+      final left = math.min(x0, x1);
+      canvas.drawRect(
+        Rect.fromLTWH(left, y0, (x1 - x0).abs(), thickness),
+        paint,
+      );
+      return;
+    }
+    if (x0 == x1) {
+      final top = math.min(y0, y1);
+      canvas.drawRect(
+        Rect.fromLTWH(x0, top, thickness, (y1 - y0).abs()),
+        paint,
+      );
+      return;
+    }
+
+    final dx = x1 - x0;
+    final dy = y1 - y0;
+    final length = math.sqrt(dx * dx + dy * dy);
+    var nx = -dy / length;
+    var ny = dx / length;
+    if (nx < 0 || (nx == 0 && ny < 0)) {
+      nx = -nx;
+      ny = -ny;
+    }
+    final half = thickness / 2;
     canvas.drawLine(
-      Offset(command.x0.toDouble(), command.y0.toDouble()),
-      Offset(command.x1.toDouble(), command.y1.toDouble()),
-      paint,
+      Offset(x0 + nx * half, y0 + ny * half),
+      Offset(x1 + nx * half, y1 + ny * half),
+      paint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = thickness
+        ..strokeCap = StrokeCap.butt,
     );
   }
 
   static void _paintBox(Canvas canvas, CpclBox command) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = command.thickness.toDouble()
-      ..style = PaintingStyle.stroke;
+    final left = math.min(command.x0, command.x1).toDouble();
+    final top = math.min(command.y0, command.y1).toDouble();
+    final right = math.max(command.x0, command.x1).toDouble();
+    final bottom = math.max(command.y0, command.y1).toDouble();
+    final thickness = math.max(1, command.thickness).toDouble();
+    final inset = thickness / 2;
+    final rect = Rect.fromLTRB(
+      left + inset,
+      top + inset,
+      right - inset,
+      bottom - inset,
+    );
+    final paint = Paint()..color = Colors.black;
+    if (rect.width <= 0 || rect.height <= 0) {
+      canvas.drawRect(Rect.fromLTRB(left, top, right, bottom), paint);
+      return;
+    }
     canvas.drawRect(
-      Rect.fromLTRB(
-        command.x0.toDouble(),
-        command.y0.toDouble(),
-        command.x1.toDouble(),
-        command.y1.toDouble(),
-      ),
-      paint,
+      rect,
+      paint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = thickness,
     );
   }
 
@@ -578,18 +646,23 @@ class CpclPreviewService {
     canvas.restore();
   }
 
-  static void _paintBarcode(Canvas canvas, CpclBarcode command) {
+  static void _paintBarcode(
+    Canvas canvas,
+    CpclBarcode command,
+    _PreviewJustify justify,
+  ) {
     final barcode = _barcodeFor(command.options.type);
+    final width = _barcodeWidth(command.data, command.options);
     final recipe = barcode.make(
       command.data,
-      width: _barcodeWidth(command.data, command.options),
+      width: width,
       height: command.options.height.toDouble(),
       drawText: false,
     );
     _paintBarcodeRecipe(
       canvas,
       recipe,
-      x: command.x.toDouble(),
+      x: justify.align(command.x.toDouble(), width),
       y: command.y.toDouble(),
     );
   }
@@ -597,6 +670,7 @@ class CpclPreviewService {
   static void _paintVerticalBarcode(
     Canvas canvas,
     CpclVerticalBarcode command,
+    _PreviewJustify justify,
   ) {
     final barcode = _barcodeFor(command.options.type);
     final width = _barcodeWidth(command.data, command.options);
@@ -609,13 +683,20 @@ class CpclPreviewService {
     );
 
     canvas.save();
-    canvas.translate(command.x.toDouble(), command.y.toDouble() + width);
+    canvas.translate(
+      justify.align(command.x.toDouble(), height),
+      command.y.toDouble() + width,
+    );
     canvas.rotate(-math.pi / 2);
     _paintBarcodeRecipe(canvas, recipe, x: 0, y: 0);
     canvas.restore();
   }
 
-  static void _paintQrCode(Canvas canvas, CpclQrCode command) {
+  static void _paintQrCode(
+    Canvas canvas,
+    CpclQrCode command,
+    _PreviewJustify justify,
+  ) {
     final qrCode = QrCode.fromData(
       data: command.data,
       errorCorrectLevel: _qrCorrectionLevel(command.options.ecc),
@@ -623,14 +704,10 @@ class CpclPreviewService {
     final qrImage = QrImage(qrCode);
     final moduleSize = command.options.unit.toDouble();
     final size = qrImage.moduleCount * moduleSize;
+    final left = justify.align(command.x.toDouble(), size);
     final darkPaint = Paint()..color = Colors.black;
     final lightPaint = Paint()..color = Colors.white;
-    final rect = Rect.fromLTWH(
-      command.x.toDouble(),
-      command.y.toDouble(),
-      size,
-      size,
-    );
+    final rect = Rect.fromLTWH(left, command.y.toDouble(), size, size);
 
     canvas.drawRect(rect, lightPaint);
     for (var row = 0; row < qrImage.moduleCount; row++) {
@@ -638,7 +715,7 @@ class CpclPreviewService {
         if (qrImage.isDark(row, col)) {
           canvas.drawRect(
             Rect.fromLTWH(
-              command.x + col * moduleSize,
+              left + col * moduleSize,
               command.y + row * moduleSize,
               moduleSize,
               moduleSize,
@@ -651,7 +728,9 @@ class CpclPreviewService {
   }
 
   static Future<void> _paintBitmap(Canvas canvas, CpclBitmap command) async {
-    final png = Uint8List.fromList(img.encodePng(command.image));
+    final png = Uint8List.fromList(
+      img.encodePng(_thresholdForPreview(command.image, command.threshold)),
+    );
     final codec = await ui.instantiateImageCodec(png);
     final frame = await codec.getNextFrame();
     paintImage(
@@ -666,6 +745,27 @@ class CpclPreviewService {
       fit: BoxFit.fill,
       filterQuality: FilterQuality.none,
     );
+  }
+
+  /// Matches printer output: composite onto white stock, then threshold.
+  ///
+  /// The preview used to paint the source image, so gray and color pixels
+  /// appeared on screen even when the CPCL bitmap would print them white.
+  static img.Image _thresholdForPreview(img.Image source, int threshold) {
+    final gray = img.grayscale(img.Image.from(source));
+    final mono = img.Image(width: gray.width, height: gray.height);
+    for (final pixel in gray) {
+      final alpha = pixel.aNormalized.toDouble().clamp(0.0, 1.0);
+      final composited = pixel.r * alpha + 255 * (1 - alpha);
+      mono.setPixel(
+        pixel.x,
+        pixel.y,
+        composited <= threshold
+            ? img.ColorRgb8(0, 0, 0)
+            : img.ColorRgb8(255, 255, 255),
+      );
+    }
+    return mono;
   }
 
   static void _translateForRotation(
@@ -752,6 +852,58 @@ class CpclPreviewService {
           paint,
         );
       }
+    }
+  }
+}
+
+enum _FieldJustify { left, center, right }
+
+/// Horizontal placement for text, barcodes, and QR codes.
+///
+/// `LEFT` keeps the field `x`. `CENTER` and `RIGHT` use the page width when
+/// the command has no end column. `CENTER end` centers inside `0..end`.
+class _PreviewJustify {
+  _PreviewJustify(CpclConfiguration config)
+    : pageWidth = config.printWidth.toDouble(),
+      _mode = switch (config.alignment) {
+        CpclAlignment.center => _FieldJustify.center,
+        CpclAlignment.right => _FieldJustify.right,
+        CpclAlignment.left || null => _FieldJustify.left,
+      };
+
+  final double pageWidth;
+  _FieldJustify _mode;
+  double? _centerSpan;
+
+  double align(double x, double fieldWidth) {
+    final span = _mode == _FieldJustify.center
+        ? (_centerSpan ?? pageWidth)
+        : pageWidth;
+    return switch (_mode) {
+      _FieldJustify.left => x,
+      _FieldJustify.center => (span - fieldWidth) / 2,
+      _FieldJustify.right => span - fieldWidth,
+    };
+  }
+
+  void applyCommand(String raw) {
+    final parts = raw.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) {
+      return;
+    }
+    switch (parts.first.toUpperCase()) {
+      case 'LEFT':
+        _mode = _FieldJustify.left;
+        _centerSpan = null;
+        break;
+      case 'RIGHT':
+        _mode = _FieldJustify.right;
+        _centerSpan = null;
+        break;
+      case 'CENTER':
+        _mode = _FieldJustify.center;
+        _centerSpan = parts.length > 1 ? double.tryParse(parts[1]) : null;
+        break;
     }
   }
 }
