@@ -5,6 +5,7 @@
 - **Bitmap alpha**: `bitmap()`, `compressedGraphics()`, `expandedGraphics()`, and rendered text composite each pixel onto white before the monochrome threshold. Fully transparent pixels, including transparent black, stay unprinted instead of becoming black dots.
 - **Preview bitmaps**: `CpclBitmap` and `CpclExpandedGraphics` are drawn as the thresholded black-and-white graphic the printer receives. Gray and color source pixels no longer appear in the preview when they would print as white.
 - **Preview lines and boxes**: horizontal `LINE` thickness now extends downward and vertical thickness extends to the right, matching CPCL. `BOX` thickness grows inward from the given corners instead of straddling them.
+- **Preview alignment**: `CpclAlignment` and `LEFT` / `CENTER` / `RIGHT` commands now move text, barcodes, and QR codes. `CENTER` uses the page width, or the end column when `CENTER end` is present. `RIGHT` aligns the field to the page width. `LEFT` keeps the field `x`.
 
 ## 0.2.6
 

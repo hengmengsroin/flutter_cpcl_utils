@@ -88,7 +88,9 @@ enum CpclPrintDensity {
   final int dpi;
 }
 
-/// Alignment presets for text rendered by line-print mode.
+/// Justification for subsequent text, barcodes, and QR codes.
+///
+/// Matches the CPCL `LEFT`, `CENTER`, and `RIGHT` commands.
 enum CpclAlignment { left, center, right }
 
 /// Standard CPCL ratio codes defining the wide-to-narrow bar relationship.

@@ -23,9 +23,9 @@ This document is the authoritative source of truth for CPCL command syntax, para
 | **`COUNTRY`** | Yes | Yes | Yes (enum) | No | Label / Utility | CPCL Core | Syntax: `COUNTRY {code}` (USA, FRANCE, GERMANY, UK, SPAIN, ITALY, SWEDEN, NORWAY). Modifies character table. |
 | **`PREFEED`** | Yes | Yes | Yes (>=0) | No | Label / Utility | CPCL Core | Syntax: `PREFEED {dots}`. Feed distance prior to printing. |
 | **`POSTFEED`** | Yes | Yes | Yes (>=0) | No | Label / Utility | CPCL Core | Syntax: `POSTFEED {dots}`. Feed distance after printing. |
-| **`CENTER`** | Yes | Yes | N/A | No | Label | CPCL Core | Centers subsequent text and barcodes until next alignment command. |
-| **`LEFT`** | Yes | Yes | N/A | No | Label | CPCL Core | Left-aligns subsequent text and barcodes. Default. |
-| **`RIGHT`** | Yes | Yes | N/A | No | Label | CPCL Core | Right-aligns subsequent text and barcodes. |
+| **`CENTER`** | Yes | Yes | N/A | Yes | Label | CPCL Core | Centers subsequent text and barcodes until next alignment command. `CENTER end` centers inside `0..end`; an omitted end uses `PAGE-WIDTH`. |
+| **`LEFT`** | Yes | Yes | N/A | Yes | Label | CPCL Core | Left-aligns subsequent text and barcodes at the field `x`. Default. |
+| **`RIGHT`** | Yes | Yes | N/A | Yes | Label | CPCL Core | Right-aligns subsequent text and barcodes to `PAGE-WIDTH`. |
 | **`SETLP`** | Yes | Yes (Verified) | Yes | No | Line-Print / Utility (`! U1`) | CPCL Core | Resident: `SETLP <font> <size> <lineSpacing>`. TrueType: `SETLP <fontName> <xScale> <yScale> <lineSpacing>`. `setLinePrint()` emits `! U1 SETLP`. |
 | **`TEXT`** | Yes | Yes | Partial | Yes | Label | CPCL Core | Syntax: `TEXT {font} {size} {x} {y} {data}`. Standard horizontal text. |
 | **`TEXT90`** | Yes | Yes | Partial | Yes | Label | CPCL Core | Syntax: `TEXT90 {font} {size} {x} {y} {data}`. Rotated 90° clockwise. |
