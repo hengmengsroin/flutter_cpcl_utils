@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.6
+
+- **Label header (Behavior Change)**: fluent `initialize()` now defaults to 203 DPI, the same 8 dot/mm resolution as `CpclConfiguration` and `CpclPrintDensity.d8`. Pass `horizontalDpi` and `verticalDpi` to keep a different resolution.
+- **Rendered text (Behavior Change)**: `renderedText()`, `khmerText()`, and `CpclRenderedText` scale the Flutter picture by `pixelRatio` before rasterizing. `pixelRatio` previously only grew the bitmap and left the glyphs at 1× in the top-left corner. Preview uses that same scale and padding.
+
 ## 0.2.5
 
 - **Inverse line (Behavior Change)**: `inverseLine()` and `CpclInverseLine` now emit the documented CPCL command `INVERSE-LINE {x0} {y0} {x1} {y1} {thickness}`. A rectangle at `(x, y)` sized `width` by `height` is written as `INVERSE-LINE x y (x+width) y height`. The previous 4-parameter form was not a valid `INVERSE-LINE` and did not invert that rectangle on the printer.

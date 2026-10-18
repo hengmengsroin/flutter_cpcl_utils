@@ -85,12 +85,15 @@ class CpclGenerator {
   }
 
   /// Writes the label initialization header and page width.
+  ///
+  /// [horizontalDpi] and [verticalDpi] default to 203, the 8 dot/mm resolution
+  /// used by [CpclPrintDensity.d8] and by [CpclConfiguration].
   CpclGenerator initialize(
     CpclLabelSize size, {
     int copies = 1,
     int offset = 0,
-    int horizontalDpi = 200,
-    int verticalDpi = 200,
+    int horizontalDpi = 203,
+    int verticalDpi = 203,
   }) {
     requirePositive(size.width, 'size.width');
     requirePositive(size.height, 'size.height');
@@ -545,9 +548,19 @@ class CpclGenerator {
     final padding = options.padding.ceil();
     final imageWidth = (contentWidth + padding * 2).clamp(1, 65535);
     final imageHeight = (contentHeight + padding * 2).clamp(1, 65535);
+    final outputWidth = (imageWidth * options.pixelRatio).ceil();
+    final outputHeight = (imageHeight * options.pixelRatio).ceil();
+    if (outputWidth > 65535 || outputHeight > 65535) {
+      throw ArgumentError(
+        'Rendered text is ${outputWidth}x$outputHeight pixels, which exceeds the CPCL limit of 65535.',
+      );
+    }
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
+    // Picture.toImage does not scale. Scale the canvas so pixelRatio becomes
+    // printer dots instead of empty margin around 1x glyphs.
+    canvas.scale(options.pixelRatio, options.pixelRatio);
     final backgroundPaint = Paint()..color = options.backgroundColor;
     canvas.drawRect(
       Rect.fromLTWH(0, 0, imageWidth.toDouble(), imageHeight.toDouble()),
@@ -556,13 +569,11 @@ class CpclGenerator {
     textPainter.paint(canvas, Offset(options.padding, options.padding));
 
     final picture = recorder.endRecording();
-    final rendered = await picture.toImage(
-      (imageWidth * options.pixelRatio).ceil(),
-      (imageHeight * options.pixelRatio).ceil(),
-    );
+    final rendered = await picture.toImage(outputWidth, outputHeight);
     final byteData = await rendered.toByteData(
       format: ui.ImageByteFormat.rawRgba,
     );
+    rendered.dispose();
     if (byteData == null) {
       throw StateError('Failed to convert rendered text to bytes.');
     }
