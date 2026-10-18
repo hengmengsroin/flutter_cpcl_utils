@@ -429,8 +429,9 @@ class CpclPreviewService {
       backgroundPaint,
     );
 
+    final justify = _PreviewJustify(config);
     for (final command in generator.commands) {
-      await _paintCommand(canvas, command);
+      await _paintCommand(canvas, command, justify);
     }
 
     return recorder.endRecording().toImage(width, height);
@@ -446,10 +447,14 @@ class CpclPreviewService {
     return config;
   }
 
-  static Future<void> _paintCommand(Canvas canvas, CpclCommand command) async {
+  static Future<void> _paintCommand(
+    Canvas canvas,
+    CpclCommand command,
+    _PreviewJustify justify,
+  ) async {
     switch (command) {
       case CpclText():
-        _paintText(canvas, command);
+        _paintText(canvas, command, justify);
         break;
       case CpclRenderedText():
         _paintRenderedText(canvas, command);
@@ -464,13 +469,13 @@ class CpclPreviewService {
         _paintInverseLine(canvas, command);
         break;
       case CpclBarcode():
-        _paintBarcode(canvas, command);
+        _paintBarcode(canvas, command, justify);
         break;
       case CpclVerticalBarcode():
-        _paintVerticalBarcode(canvas, command);
+        _paintVerticalBarcode(canvas, command, justify);
         break;
       case CpclQrCode():
-        _paintQrCode(canvas, command);
+        _paintQrCode(canvas, command, justify);
         break;
       case CpclBitmap():
         await _paintBitmap(canvas, command);
@@ -486,13 +491,19 @@ class CpclPreviewService {
           ),
         );
         break;
-      case CpclRawBytes():
       case CpclRawCommand():
+        justify.applyCommand(command.command);
+        break;
+      case CpclRawBytes():
         break;
     }
   }
 
-  static void _paintText(Canvas canvas, CpclText command) {
+  static void _paintText(
+    Canvas canvas,
+    CpclText command,
+    _PreviewJustify justify,
+  ) {
     final style = command.style;
     final textPainter = TextPainter(
       textDirection: TextDirection.ltr,
@@ -506,14 +517,21 @@ class CpclPreviewService {
       ),
     )..layout();
 
+    final width = textPainter.width * style.xMultiplier;
+    final height = textPainter.height * style.yMultiplier;
+    final horizontalExtent = switch (style.rotation) {
+      CpclRotation.angle0 || CpclRotation.angle180 => width,
+      CpclRotation.angle90 || CpclRotation.angle270 => height,
+    };
+
     canvas.save();
     _translateForRotation(
       canvas,
-      x: command.x.toDouble(),
+      x: justify.align(command.x.toDouble(), horizontalExtent),
       y: command.y.toDouble(),
       rotation: style.rotation,
-      width: textPainter.width * style.xMultiplier,
-      height: textPainter.height * style.yMultiplier,
+      width: width,
+      height: height,
     );
     canvas.scale(style.xMultiplier.toDouble(), style.yMultiplier.toDouble());
     textPainter.paint(canvas, Offset.zero);
@@ -578,18 +596,23 @@ class CpclPreviewService {
     canvas.restore();
   }
 
-  static void _paintBarcode(Canvas canvas, CpclBarcode command) {
+  static void _paintBarcode(
+    Canvas canvas,
+    CpclBarcode command,
+    _PreviewJustify justify,
+  ) {
     final barcode = _barcodeFor(command.options.type);
+    final width = _barcodeWidth(command.data, command.options);
     final recipe = barcode.make(
       command.data,
-      width: _barcodeWidth(command.data, command.options),
+      width: width,
       height: command.options.height.toDouble(),
       drawText: false,
     );
     _paintBarcodeRecipe(
       canvas,
       recipe,
-      x: command.x.toDouble(),
+      x: justify.align(command.x.toDouble(), width),
       y: command.y.toDouble(),
     );
   }
@@ -597,6 +620,7 @@ class CpclPreviewService {
   static void _paintVerticalBarcode(
     Canvas canvas,
     CpclVerticalBarcode command,
+    _PreviewJustify justify,
   ) {
     final barcode = _barcodeFor(command.options.type);
     final width = _barcodeWidth(command.data, command.options);
@@ -609,13 +633,20 @@ class CpclPreviewService {
     );
 
     canvas.save();
-    canvas.translate(command.x.toDouble(), command.y.toDouble() + width);
+    canvas.translate(
+      justify.align(command.x.toDouble(), height),
+      command.y.toDouble() + width,
+    );
     canvas.rotate(-math.pi / 2);
     _paintBarcodeRecipe(canvas, recipe, x: 0, y: 0);
     canvas.restore();
   }
 
-  static void _paintQrCode(Canvas canvas, CpclQrCode command) {
+  static void _paintQrCode(
+    Canvas canvas,
+    CpclQrCode command,
+    _PreviewJustify justify,
+  ) {
     final qrCode = QrCode.fromData(
       data: command.data,
       errorCorrectLevel: _qrCorrectionLevel(command.options.ecc),
@@ -623,14 +654,10 @@ class CpclPreviewService {
     final qrImage = QrImage(qrCode);
     final moduleSize = command.options.unit.toDouble();
     final size = qrImage.moduleCount * moduleSize;
+    final left = justify.align(command.x.toDouble(), size);
     final darkPaint = Paint()..color = Colors.black;
     final lightPaint = Paint()..color = Colors.white;
-    final rect = Rect.fromLTWH(
-      command.x.toDouble(),
-      command.y.toDouble(),
-      size,
-      size,
-    );
+    final rect = Rect.fromLTWH(left, command.y.toDouble(), size, size);
 
     canvas.drawRect(rect, lightPaint);
     for (var row = 0; row < qrImage.moduleCount; row++) {
@@ -638,7 +665,7 @@ class CpclPreviewService {
         if (qrImage.isDark(row, col)) {
           canvas.drawRect(
             Rect.fromLTWH(
-              command.x + col * moduleSize,
+              left + col * moduleSize,
               command.y + row * moduleSize,
               moduleSize,
               moduleSize,
@@ -752,6 +779,58 @@ class CpclPreviewService {
           paint,
         );
       }
+    }
+  }
+}
+
+enum _FieldJustify { left, center, right }
+
+/// Horizontal placement for text, barcodes, and QR codes.
+///
+/// `LEFT` keeps the field `x`. `CENTER` and `RIGHT` use the page width when
+/// the command has no end column. `CENTER end` centers inside `0..end`.
+class _PreviewJustify {
+  _PreviewJustify(CpclConfiguration config)
+    : pageWidth = config.printWidth.toDouble(),
+      _mode = switch (config.alignment) {
+        CpclAlignment.center => _FieldJustify.center,
+        CpclAlignment.right => _FieldJustify.right,
+        CpclAlignment.left || null => _FieldJustify.left,
+      };
+
+  final double pageWidth;
+  _FieldJustify _mode;
+  double? _centerSpan;
+
+  double align(double x, double fieldWidth) {
+    final span = _mode == _FieldJustify.center
+        ? (_centerSpan ?? pageWidth)
+        : pageWidth;
+    return switch (_mode) {
+      _FieldJustify.left => x,
+      _FieldJustify.center => (span - fieldWidth) / 2,
+      _FieldJustify.right => span - fieldWidth,
+    };
+  }
+
+  void applyCommand(String raw) {
+    final parts = raw.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) {
+      return;
+    }
+    switch (parts.first.toUpperCase()) {
+      case 'LEFT':
+        _mode = _FieldJustify.left;
+        _centerSpan = null;
+        break;
+      case 'RIGHT':
+        _mode = _FieldJustify.right;
+        _centerSpan = null;
+        break;
+      case 'CENTER':
+        _mode = _FieldJustify.center;
+        _centerSpan = parts.length > 1 ? double.tryParse(parts[1]) : null;
+        break;
     }
   }
 }

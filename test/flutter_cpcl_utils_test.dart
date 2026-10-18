@@ -243,6 +243,57 @@ void main() {
     expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
   });
 
+  test('preview applies center and right alignment', () async {
+    const pageWidth = 200;
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(
+        printWidth: pageWidth,
+        labelLength: 90,
+        alignment: CpclAlignment.left,
+        autoForm: false,
+        autoPrint: false,
+      ),
+      commands: const [
+        CpclBarcode(
+          x: 0,
+          y: 2,
+          data: 'AB',
+          options: CpclBarcodeOptions(height: 16),
+        ),
+        CpclRawCommand('CENTER'),
+        CpclBarcode(
+          x: 0,
+          y: 28,
+          data: 'AB',
+          options: CpclBarcodeOptions(height: 16),
+        ),
+        CpclRawCommand('RIGHT'),
+        CpclBarcode(
+          x: 0,
+          y: 56,
+          data: 'AB',
+          options: CpclBarcodeOptions(height: 16),
+        ),
+        CpclText(x: 0, y: 74, text: 'MMMM'),
+      ],
+    );
+
+    final png = await CpclPreviewService.renderPngFromGenerator(
+      generator,
+      pixelRatio: 1,
+    );
+    final rendered = img.decodePng(png)!;
+    final left = _inkSpan(rendered, top: 2, bottom: 18);
+    final center = _inkSpan(rendered, top: 28, bottom: 44);
+    final right = _inkSpan(rendered, top: 56, bottom: 89);
+
+    expect(left.left, lessThan(20));
+    expect(center.left, greaterThan(40));
+    expect(center.right, lessThan(pageWidth - 20));
+    expect(right.right, greaterThan(pageWidth - 8));
+    expect(right.left, greaterThan(center.left));
+  });
+
   test('inverseLine emits the documented five-parameter CPCL form', () {
     final generator = CpclGenerator()..inverseLine(0, 45, 145, 45);
 
@@ -1310,6 +1361,35 @@ double _lowestInkFraction(
 
 bool _isLight(img.Pixel pixel) {
   return pixel.a > 200 && pixel.r > 200 && pixel.g > 200 && pixel.b > 200;
+}
+
+({int left, int right}) _inkSpan(
+  img.Image image, {
+  required int top,
+  required int bottom,
+}) {
+  var left = image.width;
+  var right = -1;
+  final lastRow = bottom.clamp(0, image.height);
+  for (var y = top.clamp(0, image.height); y < lastRow; y++) {
+    for (var x = 0; x < image.width; x++) {
+      if (_isLight(image.getPixel(x, y))) {
+        continue;
+      }
+      if (x < left) {
+        left = x;
+      }
+      if (x > right) {
+        right = x;
+      }
+    }
+  }
+  expect(
+    right,
+    isNonNegative,
+    reason: 'expected ink between y $top and $bottom',
+  );
+  return (left: left, right: right);
 }
 
 String _asciiPrefix(List<int> bytes, {required int maxLength}) {

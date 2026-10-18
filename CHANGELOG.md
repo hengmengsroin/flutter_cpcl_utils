@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Preview alignment**: `CpclAlignment` and `LEFT` / `CENTER` / `RIGHT` commands now move text, barcodes, and QR codes. `CENTER` uses the page width, or the end column when `CENTER end` is present. `RIGHT` aligns the field to the page width. `LEFT` keeps the field `x`.
+
 ## 0.2.6
 
 - **Label header (Behavior Change)**: fluent `initialize()` now defaults to 203 DPI, the same 8 dot/mm resolution as `CpclConfiguration` and `CpclPrintDensity.d8`. Pass `horizontalDpi` and `verticalDpi` to keep a different resolution.
