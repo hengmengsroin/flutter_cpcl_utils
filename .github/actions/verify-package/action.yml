@@ -1,0 +1,38 @@
+name: Verify package
+description: Check formatting, analysis, tests, and pub.dev publish validation.
+
+inputs:
+  flutter-version:
+    description: Flutter SDK to install.
+    required: false
+    default: "3.47.7"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        flutter-version: ${{ inputs.flutter-version }}
+        cache: true
+
+    - name: Install dependencies
+      shell: bash
+      run: flutter pub get
+
+    - name: Check formatting
+      shell: bash
+      run: dart format --output=none --set-exit-if-changed .
+
+    - name: Analyze
+      shell: bash
+      run: flutter analyze --fatal-infos
+
+    - name: Test
+      shell: bash
+      run: flutter test
+
+    - name: Validate publish archive
+      shell: bash
+      run: flutter pub publish --dry-run
