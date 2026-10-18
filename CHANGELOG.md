@@ -4,6 +4,7 @@
 
 - **Bitmap alpha**: `bitmap()`, `compressedGraphics()`, `expandedGraphics()`, and rendered text composite each pixel onto white before the monochrome threshold. Fully transparent pixels, including transparent black, stay unprinted instead of becoming black dots.
 - **Preview bitmaps**: `CpclBitmap` and `CpclExpandedGraphics` are drawn as the thresholded black-and-white graphic the printer receives. Gray and color source pixels no longer appear in the preview when they would print as white.
+- **Preview lines and boxes**: horizontal `LINE` thickness now extends downward and vertical thickness extends to the right, matching CPCL. `BOX` thickness grows inward from the given corners instead of straddling them.
 
 ## 0.2.6
 

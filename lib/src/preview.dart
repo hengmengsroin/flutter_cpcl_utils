@@ -536,30 +536,76 @@ class CpclPreviewService {
   }
 
   static void _paintLine(Canvas canvas, CpclLine command) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = command.thickness.toDouble()
-      ..style = PaintingStyle.stroke;
+    final paint = Paint()..color = Colors.black;
+    final x0 = command.x0.toDouble();
+    final y0 = command.y0.toDouble();
+    final x1 = command.x1.toDouble();
+    final y1 = command.y1.toDouble();
+    final thickness = math.max(1, command.thickness).toDouble();
+
+    // Horizontal thickness extends downward. Vertical thickness extends
+    // to the right. A centered stroke would paint above or left of the
+    // coordinates the printer uses.
+    if (y0 == y1) {
+      final left = math.min(x0, x1);
+      canvas.drawRect(
+        Rect.fromLTWH(left, y0, (x1 - x0).abs(), thickness),
+        paint,
+      );
+      return;
+    }
+    if (x0 == x1) {
+      final top = math.min(y0, y1);
+      canvas.drawRect(
+        Rect.fromLTWH(x0, top, thickness, (y1 - y0).abs()),
+        paint,
+      );
+      return;
+    }
+
+    final dx = x1 - x0;
+    final dy = y1 - y0;
+    final length = math.sqrt(dx * dx + dy * dy);
+    var nx = -dy / length;
+    var ny = dx / length;
+    if (nx < 0 || (nx == 0 && ny < 0)) {
+      nx = -nx;
+      ny = -ny;
+    }
+    final half = thickness / 2;
     canvas.drawLine(
-      Offset(command.x0.toDouble(), command.y0.toDouble()),
-      Offset(command.x1.toDouble(), command.y1.toDouble()),
-      paint,
+      Offset(x0 + nx * half, y0 + ny * half),
+      Offset(x1 + nx * half, y1 + ny * half),
+      paint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = thickness
+        ..strokeCap = StrokeCap.butt,
     );
   }
 
   static void _paintBox(Canvas canvas, CpclBox command) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = command.thickness.toDouble()
-      ..style = PaintingStyle.stroke;
+    final left = math.min(command.x0, command.x1).toDouble();
+    final top = math.min(command.y0, command.y1).toDouble();
+    final right = math.max(command.x0, command.x1).toDouble();
+    final bottom = math.max(command.y0, command.y1).toDouble();
+    final thickness = math.max(1, command.thickness).toDouble();
+    final inset = thickness / 2;
+    final rect = Rect.fromLTRB(
+      left + inset,
+      top + inset,
+      right - inset,
+      bottom - inset,
+    );
+    final paint = Paint()..color = Colors.black;
+    if (rect.width <= 0 || rect.height <= 0) {
+      canvas.drawRect(Rect.fromLTRB(left, top, right, bottom), paint);
+      return;
+    }
     canvas.drawRect(
-      Rect.fromLTRB(
-        command.x0.toDouble(),
-        command.y0.toDouble(),
-        command.x1.toDouble(),
-        command.y1.toDouble(),
-      ),
-      paint,
+      rect,
+      paint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = thickness,
     );
   }
 
