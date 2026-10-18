@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Bitmap alpha**: `bitmap()`, `compressedGraphics()`, `expandedGraphics()`, and rendered text composite each pixel onto white before the monochrome threshold. Fully transparent pixels, including transparent black, stay unprinted instead of becoming black dots.
+- **Preview bitmaps**: `CpclBitmap` and `CpclExpandedGraphics` are drawn as the thresholded black-and-white graphic the printer receives. Gray and color source pixels no longer appear in the preview when they would print as white.
 
 ## 0.2.6
 

@@ -258,6 +258,38 @@ void main() {
     expect(pixelByte, 0xA0);
   });
 
+  test('preview thresholds bitmaps to printed black and white', () async {
+    final image = img.Image(width: 2, height: 1, numChannels: 3);
+    image.setPixelRgb(0, 0, 180, 255, 180);
+    image.setPixelRgb(1, 0, 120, 0, 0);
+
+    Future<img.Image> render(int threshold) async {
+      final generator = CpclGenerator(
+        config: const CpclConfiguration(
+          printWidth: 8,
+          labelLength: 4,
+          autoForm: false,
+          autoPrint: false,
+        ),
+        commands: [CpclBitmap(x: 1, y: 1, image: image, threshold: threshold)],
+      );
+      final png = await CpclPreviewService.renderPngFromGenerator(
+        generator,
+        pixelRatio: 1,
+      );
+      return img.decodePng(png)!;
+    }
+
+    final atDefault = await render(127);
+    // Light green is above the threshold, so the printer leaves it white.
+    expect(_isLight(atDefault.getPixel(1, 1)), isTrue);
+    // Dark red is below the threshold, so it prints as black rather than red.
+    expect(_isBlack(atDefault.getPixel(2, 1)), isTrue);
+
+    final darker = await render(250);
+    expect(_isBlack(darker.getPixel(1, 1)), isTrue);
+  });
+
   test('inverseLine emits the documented five-parameter CPCL form', () {
     final generator = CpclGenerator()..inverseLine(0, 45, 145, 45);
 
@@ -1325,6 +1357,10 @@ double _lowestInkFraction(
 
 bool _isLight(img.Pixel pixel) {
   return pixel.a > 200 && pixel.r > 200 && pixel.g > 200 && pixel.b > 200;
+}
+
+bool _isBlack(img.Pixel pixel) {
+  return pixel.a > 200 && pixel.r < 30 && pixel.g < 30 && pixel.b < 30;
 }
 
 String _asciiPrefix(List<int> bytes, {required int maxLength}) {
