@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Preview lines and boxes**: horizontal `LINE` thickness now extends downward and vertical thickness extends to the right, matching CPCL. `BOX` thickness grows inward from the given corners instead of straddling them.
+
 ## 0.2.6
 
 - **Label header (Behavior Change)**: fluent `initialize()` now defaults to 203 DPI, the same 8 dot/mm resolution as `CpclConfiguration` and `CpclPrintDensity.d8`. Pass `horizontalDpi` and `verticalDpi` to keep a different resolution.

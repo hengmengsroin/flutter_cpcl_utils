@@ -243,6 +243,46 @@ void main() {
     expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
   });
 
+  test('preview line and box thickness follow CPCL direction', () async {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(
+        printWidth: 40,
+        labelLength: 40,
+        autoForm: false,
+        autoPrint: false,
+      ),
+      commands: const [
+        CpclLine(x0: 4, y0: 4, x1: 20, y1: 4, thickness: 4),
+        CpclLine(x0: 4, y0: 12, x1: 4, y1: 28, thickness: 3),
+        CpclBox(x0: 16, y0: 16, x1: 36, y1: 36, thickness: 4),
+      ],
+    );
+
+    final png = await CpclPreviewService.renderPngFromGenerator(
+      generator,
+      pixelRatio: 1,
+    );
+    final rendered = img.decodePng(png)!;
+
+    // Horizontal line: ink starts on the y coordinate and extends downward.
+    expect(_isLight(rendered.getPixel(10, 3)), isTrue);
+    expect(_isBlack(rendered.getPixel(10, 4)), isTrue);
+    expect(_isBlack(rendered.getPixel(10, 7)), isTrue);
+    expect(_isLight(rendered.getPixel(10, 8)), isTrue);
+
+    // Vertical line: ink starts on the x coordinate and extends to the right.
+    expect(_isLight(rendered.getPixel(3, 18)), isTrue);
+    expect(_isBlack(rendered.getPixel(4, 18)), isTrue);
+    expect(_isBlack(rendered.getPixel(6, 18)), isTrue);
+    expect(_isLight(rendered.getPixel(7, 18)), isTrue);
+
+    // Box thickness stays inside the corner coordinates.
+    expect(_isLight(rendered.getPixel(15, 24)), isTrue);
+    expect(_isBlack(rendered.getPixel(16, 24)), isTrue);
+    expect(_isBlack(rendered.getPixel(19, 24)), isTrue);
+    expect(_isLight(rendered.getPixel(20, 24)), isTrue);
+  });
+
   test('inverseLine emits the documented five-parameter CPCL form', () {
     final generator = CpclGenerator()..inverseLine(0, 45, 145, 45);
 
@@ -1310,6 +1350,10 @@ double _lowestInkFraction(
 
 bool _isLight(img.Pixel pixel) {
   return pixel.a > 200 && pixel.r > 200 && pixel.g > 200 && pixel.b > 200;
+}
+
+bool _isBlack(img.Pixel pixel) {
+  return pixel.a > 200 && pixel.r < 30 && pixel.g < 30 && pixel.b < 30;
 }
 
 String _asciiPrefix(List<int> bytes, {required int maxLength}) {
