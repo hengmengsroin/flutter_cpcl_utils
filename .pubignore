@@ -1,3 +1,28 @@
-# Keep automation out of the pub.dev archive.
+# .pubignore replaces .gitignore when deciding the pub.dev archive.
+# Keep the same local-tooling exclusions, plus CI files that belong in git.
+
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+*.iml
+*.ipr
+*.iws
+.idea/
+
+/pubspec.lock
+**/doc/api/
+.dart_tool/
+.flutter-plugins-dependencies
+/build/
+/coverage/
+
 .github/
 tool/
