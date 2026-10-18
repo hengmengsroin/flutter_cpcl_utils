@@ -205,6 +205,11 @@ class CpclBox extends CpclCommand {
 }
 
 /// Declarative `INVERSE-LINE` command.
+///
+/// Describes a rectangle. [CpclGenerator.inverseLine] writes it as
+/// `INVERSE-LINE x y (x+width) y height`, which is the documented CPCL form
+/// for a horizontal inverse bar. Content drawn earlier inside the rectangle
+/// is inverted; content drawn later is not.
 class CpclInverseLine extends CpclCommand {
   /// Creates an inverse-line command.
   const CpclInverseLine({
@@ -214,16 +219,16 @@ class CpclInverseLine extends CpclCommand {
     required this.height,
   });
 
-  /// X position in dots.
+  /// Left edge of the rectangle, in dots.
   final int x;
 
-  /// Y position in dots.
+  /// Top edge of the rectangle, in dots.
   final int y;
 
-  /// Inversion width in dots.
+  /// Rectangle width in dots.
   final int width;
 
-  /// Inversion height in dots.
+  /// Rectangle height in dots.
   final int height;
 
   @override
@@ -233,7 +238,7 @@ class CpclInverseLine extends CpclCommand {
   }
 }
 
-/// Declarative `EG` bitmap command.
+/// Declarative `CG` (COMPRESSED-GRAPHICS) bitmap command.
 class CpclBitmap extends CpclCommand {
   /// Creates a bitmap command.
   const CpclBitmap({
@@ -262,10 +267,42 @@ class CpclBitmap extends CpclCommand {
   }
 }
 
-/// Declarative Khmer text command that renders text using Flutter first.
-class CpclKhmerText extends CpclCommand {
-  /// Creates a Khmer text command.
-  const CpclKhmerText({
+/// Declarative `CG` (COMPRESSED-GRAPHICS) command alias.
+typedef CpclCompressedGraphics = CpclBitmap;
+
+/// Declarative `EG` (EXPANDED-GRAPHICS) hexadecimal bitmap command.
+class CpclExpandedGraphics extends CpclCommand {
+  /// Creates an expanded graphics command.
+  const CpclExpandedGraphics({
+    required this.x,
+    required this.y,
+    required this.image,
+    this.threshold = 127,
+  });
+
+  /// X position in dots.
+  final int x;
+
+  /// Y position in dots.
+  final int y;
+
+  /// Source bitmap image.
+  final img.Image image;
+
+  /// Monochrome threshold (`0..255`).
+  final int threshold;
+
+  @override
+  /// Applies this expanded graphics command to [generator].
+  void apply(CpclGenerator generator) {
+    generator.expandedGraphics(x, y, image, threshold: threshold);
+  }
+}
+
+/// Declarative command that renders text using Flutter before outputting as bitmap.
+class CpclRenderedText extends CpclCommand {
+  /// Creates a rendered text command.
+  const CpclRenderedText({
     required this.x,
     required this.y,
     required this.text,
@@ -286,6 +323,32 @@ class CpclKhmerText extends CpclCommand {
 
   @override
   bool get requiresAsync => true;
+
+  @override
+  /// Rendered text commands require asynchronous rendering.
+  void apply(CpclGenerator generator) {
+    throw UnsupportedError('CpclRenderedText must be built with buildAsync().');
+  }
+
+  @override
+  /// Applies this rendered text command asynchronously.
+  Future<void> applyAsync(CpclGenerator generator) {
+    return generator.renderedText(x, y, text, options: options);
+  }
+}
+
+/// Declarative Khmer text command that renders text using Flutter first.
+///
+/// Backward-compatible wrapper for [CpclRenderedText]. Prefer [CpclRenderedText]
+/// for new code.
+class CpclKhmerText extends CpclRenderedText {
+  /// Creates a Khmer text command.
+  const CpclKhmerText({
+    required super.x,
+    required super.y,
+    required super.text,
+    required super.options,
+  });
 
   @override
   /// Khmer text commands require asynchronous rendering.
