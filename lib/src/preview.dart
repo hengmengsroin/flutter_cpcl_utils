@@ -562,18 +562,18 @@ class CpclPreviewService {
   }
 
   static void _paintInverseLine(Canvas canvas, CpclInverseLine command) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(
-      Rect.fromLTWH(
-        command.x.toDouble(),
-        command.y.toDouble(),
-        command.width.toDouble(),
-        command.height.toDouble(),
-      ),
-      paint,
+    final rect = Rect.fromLTWH(
+      command.x.toDouble(),
+      command.y.toDouble(),
+      command.width.toDouble(),
+      command.height.toDouble(),
     );
+    // Composite an opaque white layer with difference so RGB inverts and
+    // alpha stays opaque. Drawing the blend directly would also difference
+    // alpha and punch a transparent hole through the label.
+    canvas.saveLayer(rect, Paint()..blendMode = BlendMode.difference);
+    canvas.drawRect(rect, Paint()..color = const Color(0xFFFFFFFF));
+    canvas.restore();
   }
 
   static void _paintBarcode(Canvas canvas, CpclBarcode command) {

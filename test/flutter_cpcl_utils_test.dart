@@ -102,7 +102,7 @@ void main() {
       'SETMAG 0 0\r\n'
       'LEFT\r\n'
       'BOX 5 6 30 40 3\r\n'
-      'INVERSE-LINE 8 9 10 11\r\n'
+      'INVERSE-LINE 8 9 18 9 11\r\n'
       'PREFEED 24\r\n'
       'POSTFEED 48\r\n',
     );
@@ -225,6 +225,70 @@ void main() {
     );
     expect(bytes['CG 1 1 10 20 '.length], 0xC0);
     expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
+  });
+
+  test('inverseLine emits the documented five-parameter CPCL form', () {
+    final generator = CpclGenerator()..inverseLine(0, 45, 145, 45);
+
+    expect(generator.preview(), 'INVERSE-LINE 0 45 145 45 45\r\n');
+  });
+
+  test('declarative inverse line matches the fluent rectangle mapping', () {
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(
+        printWidth: 200,
+        labelLength: 120,
+        autoForm: false,
+        autoPrint: false,
+      ),
+      commands: const [
+        CpclInverseLine(x: 0, y: 45, width: 145, height: 45),
+      ],
+    );
+
+    expect(
+      generator.preview(),
+      '! 0 203 203 120 1\r\n'
+      'PAGE-WIDTH 200\r\n'
+      'INVERSE-LINE 0 45 145 45 45\r\n',
+    );
+  });
+
+  test('preview inverts earlier pixels inside an inverse line', () async {
+    final black = img.Image(width: 8, height: 8);
+    img.fill(black, color: img.ColorRgb8(0, 0, 0));
+    final white = img.Image(width: 8, height: 8);
+    img.fill(white, color: img.ColorRgb8(255, 255, 255));
+
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(printWidth: 64, labelLength: 32),
+      commands: [
+        CpclBitmap(x: 4, y: 4, image: black),
+        const CpclInverseLine(x: 4, y: 4, width: 8, height: 8),
+        const CpclInverseLine(x: 24, y: 4, width: 8, height: 8),
+        const CpclInverseLine(x: 40, y: 4, width: 16, height: 16),
+        CpclBitmap(x: 44, y: 8, image: white),
+      ],
+    );
+
+    final png = await CpclPreviewService.renderPngFromGenerator(
+      generator,
+      pixelRatio: 1,
+    );
+    final rendered = img.decodePng(png);
+    expect(rendered, isNotNull);
+
+    // Black bitmap drawn before the inverse line becomes white.
+    expect(_isLight(rendered!.getPixel(6, 6)), isTrue);
+    // Empty label stock inside an inverse line becomes black.
+    expect(_isLight(rendered.getPixel(28, 8)), isFalse);
+    // The inverse line is painted before the white bitmap, so that bitmap
+    // stays white instead of being inverted to black.
+    expect(_isLight(rendered.getPixel(46, 10)), isTrue);
+    // Stock beside that bitmap, still inside the later inverse line, is black.
+    expect(_isLight(rendered.getPixel(41, 6)), isFalse);
+    // Untouched stock stays white.
+    expect(_isLight(rendered.getPixel(1, 1)), isTrue);
   });
 
   test('renderedText renders text through bitmap output', () async {
@@ -636,6 +700,12 @@ void main() {
         options: CpclQrCodeOptions(unit: 0),
       ),
       throwsA(isA<RangeError>()),
+    );
+    expect(() => CpclGenerator().inverseLine(-1, 0, 10, 10), throwsRangeError);
+    expect(() => CpclGenerator().inverseLine(0, 0, 0, 10), throwsRangeError);
+    expect(
+      () => CpclGenerator().inverseLine(65535, 0, 1, 1),
+      throwsRangeError,
     );
   });
 
@@ -1155,6 +1225,10 @@ void main() {
       },
     );
   });
+}
+
+bool _isLight(img.Pixel pixel) {
+  return pixel.a > 200 && pixel.r > 200 && pixel.g > 200 && pixel.b > 200;
 }
 
 String _asciiPrefix(List<int> bytes, {required int maxLength}) {

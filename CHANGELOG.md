@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.5
+
+- **Inverse line (Behavior Change)**: `inverseLine()` and `CpclInverseLine` now emit the documented CPCL command `INVERSE-LINE {x0} {y0} {x1} {y1} {thickness}`. A rectangle at `(x, y)` sized `width` by `height` is written as `INVERSE-LINE x y (x+width) y height`. The previous 4-parameter form was not a valid `INVERSE-LINE` and did not invert that rectangle on the printer.
+- Coordinates and size are checked against the CPCL `0..65535` range, including `x + width`.
+- **Preview**: inverse-line regions now invert pixels drawn earlier, matching the printer. Content drawn after the command is left unchanged. The preview no longer paints an opaque black block over the rectangle.
+
 ## 0.2.4
 
 - **Rendered Text Generalization**:

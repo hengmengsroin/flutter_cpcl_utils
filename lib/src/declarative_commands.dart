@@ -205,6 +205,11 @@ class CpclBox extends CpclCommand {
 }
 
 /// Declarative `INVERSE-LINE` command.
+///
+/// Describes a rectangle. [CpclGenerator.inverseLine] writes it as
+/// `INVERSE-LINE x y (x+width) y height`, which is the documented CPCL form
+/// for a horizontal inverse bar. Content drawn earlier inside the rectangle
+/// is inverted; content drawn later is not.
 class CpclInverseLine extends CpclCommand {
   /// Creates an inverse-line command.
   const CpclInverseLine({
@@ -214,16 +219,16 @@ class CpclInverseLine extends CpclCommand {
     required this.height,
   });
 
-  /// X position in dots.
+  /// Left edge of the rectangle, in dots.
   final int x;
 
-  /// Y position in dots.
+  /// Top edge of the rectangle, in dots.
   final int y;
 
-  /// Inversion width in dots.
+  /// Rectangle width in dots.
   final int width;
 
-  /// Inversion height in dots.
+  /// Rectangle height in dots.
   final int height;
 
   @override

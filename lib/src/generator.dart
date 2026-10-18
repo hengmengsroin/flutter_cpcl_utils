@@ -232,11 +232,23 @@ class CpclGenerator {
     return rawCommand('BOX $x0 $y0 $x1 $y1 $thickness');
   }
 
-  /// Adds an `INVERSE-LINE` command.
+  /// Adds an `INVERSE-LINE` command covering a rectangle at `[x, y]`.
+  ///
+  /// Zebra CPCL uses the same geometry as [line]:
+  /// `INVERSE-LINE {x0} {y0} {x1} {y1} {thickness}`.
+  /// A rectangle [width] dots wide and [height] dots tall is written as the
+  /// horizontal bar `INVERSE-LINE x y (x+width) y height`.
+  ///
+  /// The printer inverts objects drawn earlier that fall inside the rectangle.
+  /// Objects drawn after this command are not inverted.
   CpclGenerator inverseLine(int x, int y, int width, int height) {
-    requirePositive(width, 'width');
-    requirePositive(height, 'height');
-    return rawCommand('INVERSE-LINE $x $y $width $height');
+    requireRange(x, 0, 65535, 'x');
+    requireRange(y, 0, 65535, 'y');
+    requireRange(width, 1, 65535, 'width');
+    requireRange(height, 1, 65535, 'height');
+    final endX = x + width;
+    requireRange(endX, 0, 65535, 'x + width');
+    return rawCommand('INVERSE-LINE $x $y $endX $y $height');
   }
 
   void _validateBarcodeParameters(

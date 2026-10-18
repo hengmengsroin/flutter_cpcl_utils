@@ -35,7 +35,7 @@ This document is the authoritative source of truth for CPCL command syntax, para
 | **`SETMAG`** | Yes | Yes (Verified) | Yes (1..16) | Yes | Label | CPCL Core | Syntax: `SETMAG {w} {h}` (`1..16` direct scale factors). `SETMAG 0 0` resets to standard resident font scale. |
 | **`LINE`** | Yes | Yes | Partial | Yes | Label | CPCL Core | Syntax: `LINE {x0} {y0} {x1} {y1} {thickness}`. |
 | **`BOX`** | Yes | Yes | Partial | Yes | Label | CPCL Core | Syntax: `BOX {x0} {y0} {x1} {y1} {thickness}`. |
-| **`INVERSE-LINE`**| Yes | Yes | Partial | Yes | Label | CPCL Core | Syntax: `INVERSE-LINE {x} {y} {width} {height}`. Inverts pixels in rectangle. |
+| **`INVERSE-LINE`**| Yes | Yes (Verified) | Yes | Yes | Label | CPCL Core | Syntax: `INVERSE-LINE {x0} {y0} {x1} {y1} {thickness}` (same geometry as `LINE`). `inverseLine(x, y, width, height)` emits `INVERSE-LINE x y (x+width) y height`. Inverts earlier content inside the rectangle only. |
 | **`BARCODE`** | Yes | Yes (Verified) | Yes | Yes (Heuristic) | Label | CPCL Core | Syntax: `BARCODE {type} {width} {ratio} {height} {x} {y} {data}`. `ratio` represents CPCL ratio code (0, 1, 2, 3, 20..30). |
 | **`VBARCODE`** | Yes | Yes (Verified) | Yes | Yes (Heuristic) | Label | CPCL Core | Vertical barcode variant of `BARCODE`. Shares same `{width}` and `{ratio}` parameters. |
 | **`B QR`** | Yes | Yes | Partial | Yes | Label | CPCL Core / Link-OS | Syntax: `B QR {x} {y} M {model} U {unit}\r\n{ecc}A,{data}\r\nENDQR`. |
@@ -128,6 +128,18 @@ This document is the authoritative source of truth for CPCL command syntax, para
     `final int narrow; final int wide;`
   * It documents `wide` as "Wide bar width in dots".
   * In reality, parameter 3 is the **ratio code**, not a dot width. Calling it `wide` is semantically incorrect and confuses callers trying to set ratio codes.
+
+### 6. `INVERSE-LINE`
+* **Zebra Specification**:
+  * Syntax matches `LINE`: `INVERSE-LINE {x0} {y0} {x1} {y1} {thickness}` (alias `IL`).
+  * For a horizontal bar, `(x0, y0)` is the top-left corner, `(x1, y0)` is the top-right corner, and `{thickness}` extends downward.
+  * Pixels of objects created *before* the command are inverted inside that area. Objects created afterward are not affected.
+  * Manual example: `INVERSE-LINE 0 45 145 45 45` covers x `0..145` and y `45..90`.
+* **Library mapping**:
+  * `inverseLine(x, y, width, height)` and `CpclInverseLine` keep a rectangle API and emit `INVERSE-LINE x y (x+width) y height`.
+  * `inverseLine(0, 45, 145, 45)` therefore emits the manual example above.
+  * `x`, `y`, `width`, `height`, and `x + width` must fall in `0..65535` (`width` and `height` at least 1).
+  * Preview uses a difference blend over that rectangle so earlier marks invert and later marks stay as drawn.
 
 ---
 

@@ -234,6 +234,7 @@ Common CPCL features available through the fluent and declarative APIs include:
 
 ## Notes
 
+- `inverseLine()` and `CpclInverseLine` describe a rectangle. The generator writes Zebra's `INVERSE-LINE x y (x+width) y height`, which inverts content drawn earlier in that rectangle.
 - CPCL support varies by printer model and firmware.
 - Text passed to `text()`, `barcode()`, and `qrCode()` is flattened to a single line because CPCL commands are line-oriented.
 - This package focuses on common CPCL building blocks and leaves unsupported features to `rawCommand()` and `rawBytes()`.
