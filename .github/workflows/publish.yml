@@ -1,0 +1,39 @@
+name: Publish to pub.dev
+
+on:
+  push:
+    tags:
+      # Matches the pub.dev tag pattern v{{version}}, including build metadata.
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+      - "v[0-9]+.[0-9]+.[0-9]+[+]*"
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Require the tag to match pubspec.yaml
+        run: bash tool/release_tag.sh check-tag
+
+      - name: Verify package
+        uses: ./.github/actions/verify-package
+
+  publish:
+    name: Publish to pub.dev
+    needs: verify
+    permissions:
+      id-token: write
+      contents: read
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1

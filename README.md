@@ -1,5 +1,7 @@
 # flutter_cpcl_utils
 
+[![CI](https://github.com/hengmengsroin/flutter_cpcl_utils/actions/workflows/ci.yml/badge.svg)](https://github.com/hengmengsroin/flutter_cpcl_utils/actions/workflows/ci.yml)
+
 Generate CPCL label commands from Flutter, build labels with either a fluent or declarative API, preview them locally in-app, and export preview images as PNG or PDF.
 
 This package is aimed at CPCL-compatible mobile and label printers. It focuses on common label-building primitives while still leaving raw command escape hatches for printer-specific behavior.
@@ -210,6 +212,29 @@ Common CPCL features available through the fluent and declarative APIs include:
 - Printer controls such as `speed()`, `tone()`, `contrast()`, `country()`, and `setLp()`
 - Bitmap printing
 - Raw commands and raw bytes
+
+## Publishing
+
+Pull requests and pushes to `main` run formatting, analysis, tests, and `flutter pub publish --dry-run`.
+
+A version is published to pub.dev when a tag `vX.Y.Z` matching `pubspec.yaml` is pushed. Authentication uses GitHub OIDC, so the repository does not store a pub.dev credential.
+
+One-time setup, from the package admin page on pub.dev:
+
+1. Enable publishing from GitHub Actions.
+2. Set the repository to `hengmengsroin/flutter_cpcl_utils`.
+3. Set the tag pattern to `v{{version}}`.
+
+After that, publish with:
+
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+The tag must match the `version` field, and `CHANGELOG.md` needs a `## X.Y.Z` section.
+
+To publish by merging to `main`, add a fine-grained personal access token as the `RELEASE_TOKEN` repository secret with Contents read and write. Pushes to `main` then create the `vX.Y.Z` tag when that version is in the changelog and is not on pub.dev yet. The tag push starts the publish workflow. `GITHUB_TOKEN` cannot do this, because tag pushes it creates do not start other workflows.
 
 ## Notes
 

@@ -1,0 +1,3 @@
+# Keep automation out of the pub.dev archive.
+.github/
+tool/

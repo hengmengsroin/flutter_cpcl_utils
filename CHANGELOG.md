@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+- Improve package API documentation coverage with comprehensive dartdoc comments across exported types.
+- Add missing docs for declarative command classes and key methods (including `apply` overrides).
+- Keep package validation clean for publishing (`dart pub publish --dry-run` with zero warnings).
+
 ## 0.2.1
 
 - Improve `CpclPreview` layout stability inside bounded widgets and avoid rerender churn on ordinary rebuilds.
