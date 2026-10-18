@@ -241,9 +241,7 @@ void main() {
         autoForm: false,
         autoPrint: false,
       ),
-      commands: const [
-        CpclInverseLine(x: 0, y: 45, width: 145, height: 45),
-      ],
+      commands: const [CpclInverseLine(x: 0, y: 45, width: 145, height: 45)],
     );
 
     expect(
@@ -703,10 +701,7 @@ void main() {
     );
     expect(() => CpclGenerator().inverseLine(-1, 0, 10, 10), throwsRangeError);
     expect(() => CpclGenerator().inverseLine(0, 0, 0, 10), throwsRangeError);
-    expect(
-      () => CpclGenerator().inverseLine(65535, 0, 1, 1),
-      throwsRangeError,
-    );
+    expect(() => CpclGenerator().inverseLine(65535, 0, 1, 1), throwsRangeError);
   });
 
   group('CPCL protocol correctness golden tests', () {
