@@ -61,10 +61,9 @@ This document is the authoritative source of truth for CPCL command syntax, para
   * `{vertical-dpi}` (int): Printer resolution along media travel (203 for 8 dmm, 300 for 12 dmm).
   * `{height}` (int): Maximum length of the label in dots.
   * `{qty}` (int): Quantity of label copies to print (1..32000).
-* **Current Library Discrepancy**:
-  * Fluent `initialize(...)` defaults to `horizontalDpi: 200, verticalDpi: 200`.
-  * Declarative `CpclConfiguration` defaults to `printDensity: CpclPrintDensity.d8` (203 DPI).
-  * Zebra standard for 8 dots/mm heads is 203 DPI. Fluent defaulting to 200 produces mismatched CPCL headers.
+* **Library behavior**:
+  * Fluent `initialize(...)` and declarative `CpclConfiguration` both default to 203 DPI (`CpclPrintDensity.d8`).
+  * Pass `horizontalDpi` and `verticalDpi` to `initialize` when a printer needs a different resolution.
 
 ### 2. `EG` vs. `CG` (Graphics Commands)
 * **Zebra Specification**:

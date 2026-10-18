@@ -521,16 +521,18 @@ class CpclPreviewService {
   }
 
   static void _paintRenderedText(Canvas canvas, CpclRenderedText command) {
+    final options = command.options;
     final textPainter = TextPainter(
-      textDirection: command.options.textDirection,
-      textAlign: command.options.textAlign,
-      text: TextSpan(text: command.text, style: command.options.style),
-    )..layout(maxWidth: command.options.maxWidth ?? double.infinity);
+      textDirection: options.textDirection,
+      textAlign: options.textAlign,
+      text: TextSpan(text: command.text, style: options.style),
+    )..layout(maxWidth: options.maxWidth ?? double.infinity);
 
-    textPainter.paint(
-      canvas,
-      Offset(command.x.toDouble(), command.y.toDouble()),
-    );
+    canvas.save();
+    canvas.translate(command.x.toDouble(), command.y.toDouble());
+    canvas.scale(options.pixelRatio, options.pixelRatio);
+    textPainter.paint(canvas, Offset(options.padding, options.padding));
+    canvas.restore();
   }
 
   static void _paintLine(Canvas canvas, CpclLine command) {

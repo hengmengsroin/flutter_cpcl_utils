@@ -24,7 +24,7 @@ void main() {
 
     expect(
       generator.preview(),
-      '! 0 200 200 320 1\r\n'
+      '! 0 203 203 320 1\r\n'
       'PAGE-WIDTH 576\r\n'
       'SPEED 3\r\n'
       'TONE 1\r\n'
@@ -38,6 +38,22 @@ void main() {
       'FORM\r\n'
       'PRINT\r\n',
     );
+  });
+
+  test('initialize defaults to 203 dpi and accepts an explicit resolution', () {
+    final standard = CpclGenerator()..initialize(const CpclLabelSize(100, 50));
+    expect(
+      standard.preview(),
+      startsWith('! 0 203 203 50 1\r\nPAGE-WIDTH 100\r\n'),
+    );
+
+    final explicit = CpclGenerator()
+      ..initialize(
+        const CpclLabelSize(100, 50),
+        horizontalDpi: 200,
+        verticalDpi: 200,
+      );
+    expect(explicit.preview(), startsWith('! 0 200 200 50 1\r\n'));
   });
 
   test('builds CPCL commands with declarative config and command list', () {
@@ -196,7 +212,7 @@ void main() {
 
     expect(
       generator.preview(),
-      '! 0 200 200 320 1\r\n'
+      '! 0 203 203 320 1\r\n'
       'PAGE-WIDTH 576\r\n'
       'BOX 10 10 566 310 2\r\n'
       'LINE 20 60 556 60 2\r\n'
@@ -309,6 +325,19 @@ void main() {
     expect(bytes.length, greaterThan(prefix.length + 2));
     expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
   });
+
+  test(
+    'renderedText pixelRatio scales glyphs instead of adding blank margin',
+    () async {
+      final normal = await _renderedGraphic('Ag', pixelRatio: 1);
+      final scaled = await _renderedGraphic('Ag', pixelRatio: 2);
+
+      expect(scaled.height, closeTo(normal.height * 2, 1));
+      expect(scaled.widthBytes, closeTo(normal.widthBytes * 2, 1));
+      expect(_lowestInkFraction(normal), greaterThan(0.7));
+      expect(_lowestInkFraction(scaled), greaterThan(0.7));
+    },
+  );
 
   test(
     'khmerText renders text through bitmap output (backward compatibility)',
@@ -1220,6 +1249,63 @@ void main() {
       },
     );
   });
+}
+
+Future<({int widthBytes, int height, List<int> pixels})> _renderedGraphic(
+  String value, {
+  required double pixelRatio,
+}) async {
+  final generator = CpclGenerator();
+  await generator.renderedText(
+    0,
+    0,
+    value,
+    options: CpclRenderedTextOptions(
+      style: const TextStyle(fontSize: 24, color: Color(0xFF000000)),
+      pixelRatio: pixelRatio,
+    ),
+  );
+  return _parseCg(generator.build());
+}
+
+({int widthBytes, int height, List<int> pixels}) _parseCg(List<int> bytes) {
+  var index = 0;
+  String readToken() {
+    final start = index;
+    while (index < bytes.length && bytes[index] != 0x20) {
+      index++;
+    }
+    final token = latin1.decode(bytes.sublist(start, index));
+    if (index < bytes.length && bytes[index] == 0x20) {
+      index++;
+    }
+    return token;
+  }
+
+  expect(readToken(), 'CG');
+  final widthBytes = int.parse(readToken());
+  final height = int.parse(readToken());
+  readToken();
+  readToken();
+  final pixels = bytes.sublist(index, index + widthBytes * height);
+  return (widthBytes: widthBytes, height: height, pixels: pixels);
+}
+
+double _lowestInkFraction(
+  ({int widthBytes, int height, List<int> pixels}) graphic,
+) {
+  var lowest = -1;
+  for (var y = 0; y < graphic.height; y++) {
+    final offset = y * graphic.widthBytes;
+    for (var x = 0; x < graphic.widthBytes; x++) {
+      if (graphic.pixels[offset + x] != 0) {
+        lowest = y;
+        break;
+      }
+    }
+  }
+  expect(lowest, isNonNegative);
+  return lowest / (graphic.height - 1);
 }
 
 bool _isLight(img.Pixel pixel) {

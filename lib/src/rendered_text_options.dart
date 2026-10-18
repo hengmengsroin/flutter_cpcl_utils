@@ -29,7 +29,10 @@ class CpclRenderedTextOptions {
   /// Padding around rendered text in logical pixels.
   final double padding;
 
-  /// Pixel ratio used during rasterization.
+  /// Number of printer dots produced for each logical pixel.
+  ///
+  /// The text is drawn at this scale, so `2` makes the bitmap twice as wide
+  /// and twice as tall as the Flutter layout.
   final double pixelRatio;
 
   /// Threshold used when converting rendered text to monochrome.

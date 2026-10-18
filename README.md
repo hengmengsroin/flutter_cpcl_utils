@@ -212,7 +212,7 @@ final bytes = await generator.buildAsync();
 
 ## Label Sizing
 
-All measurements in this package use printer dots, not millimeters.
+All measurements in this package use printer dots, not millimeters. `initialize()` writes a 203 DPI header unless `horizontalDpi` and `verticalDpi` are set.
 
 Common starting points at 203 DPI:
 
