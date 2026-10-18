@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Label offset**: `CpclConfiguration.offset` is the horizontal shift in the `!` header, not a top offset. Preview now moves the label to the right by that many dots.
+
 ## 0.2.6
 
 - **Label header (Behavior Change)**: fluent `initialize()` now defaults to 203 DPI, the same 8 dot/mm resolution as `CpclConfiguration` and `CpclPrintDensity.d8`. Pass `horizontalDpi` and `verticalDpi` to keep a different resolution.

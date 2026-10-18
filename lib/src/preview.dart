@@ -429,6 +429,10 @@ class CpclPreviewService {
       backgroundPaint,
     );
 
+    // The session-header offset shifts the printed fields to the right.
+    // The label stock itself stays in place.
+    canvas.translate(config.offset.toDouble(), 0);
+
     for (final command in generator.commands) {
       await _paintCommand(canvas, command);
     }

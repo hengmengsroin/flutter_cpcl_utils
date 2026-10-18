@@ -162,7 +162,10 @@ class CpclConfiguration {
   /// Number of copies to print.
   final int copies;
 
-  /// Top offset in dots.
+  /// Horizontal offset in dots.
+  ///
+  /// This is the first field of the CPCL `!` header. It shifts the whole
+  /// label to the right. It is not a vertical offset.
   final int offset;
 
   /// Density preset used when explicit DPI is not provided.
