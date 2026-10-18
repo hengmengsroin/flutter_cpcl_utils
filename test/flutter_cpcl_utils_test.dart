@@ -243,6 +243,21 @@ void main() {
     expect(latin1.decode(bytes.sublist(bytes.length - 2)), '\r\n');
   });
 
+  test('transparent pixels stay unprinted when rasterized', () {
+    final image = img.Image(width: 8, height: 1, numChannels: 4);
+    img.fill(image, color: img.ColorRgba8(0, 0, 0, 0));
+    image.setPixelRgba(0, 0, 0, 0, 0, 255);
+    image.setPixelRgba(2, 0, 0, 0, 0, 255);
+
+    final generator = CpclGenerator()..bitmap(0, 0, image);
+    final bytes = generator.build();
+    final pixelByte = bytes['CG 1 1 0 0 '.length];
+
+    // Bits 7 and 5 are the opaque black dots. The transparent black pixels
+    // around them must not set a bit.
+    expect(pixelByte, 0xA0);
+  });
+
   test('inverseLine emits the documented five-parameter CPCL form', () {
     final generator = CpclGenerator()..inverseLine(0, 45, 145, 45);
 

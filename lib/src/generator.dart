@@ -596,9 +596,9 @@ class CpclGenerator {
 
     for (var y = 0; y < grayscaleImage.height; y++) {
       for (var x = 0; x < paddedWidth; x++) {
-        final isBlack = x < grayscaleImage.width
-            ? grayscaleImage.getPixel(x, y).r <= threshold
-            : false;
+        final isBlack =
+            x < grayscaleImage.width &&
+            _isPrintedDot(grayscaleImage.getPixel(x, y), threshold);
         if (isBlack) {
           final byteIndex = y * widthBytes + (x ~/ 8);
           final bitIndex = 7 - (x % 8);
@@ -613,6 +613,17 @@ class CpclGenerator {
       bytes: bytes,
     );
   }
+}
+
+/// CPCL prints on white stock. Composite [pixel] onto white, then treat it as
+/// a printed dot when the result is at or below [threshold].
+///
+/// Alpha is part of that composite. A fully transparent pixel is unprinted
+/// white, including when its RGB channels are black.
+bool _isPrintedDot(img.Pixel pixel, int threshold) {
+  final alpha = pixel.aNormalized.toDouble().clamp(0.0, 1.0);
+  final composited = pixel.r * alpha + 255 * (1 - alpha);
+  return composited <= threshold;
 }
 
 class _RasterizedBitmap {

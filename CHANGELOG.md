@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Bitmap alpha**: `bitmap()`, `compressedGraphics()`, `expandedGraphics()`, and rendered text composite each pixel onto white before the monochrome threshold. Fully transparent pixels, including transparent black, stay unprinted instead of becoming black dots.
+
 ## 0.2.6
 
 - **Label header (Behavior Change)**: fluent `initialize()` now defaults to 203 DPI, the same 8 dot/mm resolution as `CpclConfiguration` and `CpclPrintDensity.d8`. Pass `horizontalDpi` and `verticalDpi` to keep a different resolution.
