@@ -64,6 +64,7 @@ This document is the authoritative source of truth for CPCL command syntax, para
 * **Library behavior**:
   * Fluent `initialize(...)` and declarative `CpclConfiguration` both default to 203 DPI (`CpclPrintDensity.d8`).
   * Pass `horizontalDpi` and `verticalDpi` to `initialize` when a printer needs a different resolution.
+  * `{offset}` is a horizontal shift. Preview moves drawn fields to the right by that many dots and leaves the label stock in place.
 
 ### 2. `EG` vs. `CG` (Graphics Commands)
 * **Zebra Specification**:

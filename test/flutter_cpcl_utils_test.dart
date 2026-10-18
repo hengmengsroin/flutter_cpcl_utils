@@ -381,6 +381,36 @@ void main() {
     expect(right.left, greaterThan(center.left));
   });
 
+  test('preview shifts the label by the horizontal session offset', () async {
+    final black = img.Image(width: 4, height: 4);
+    img.fill(black, color: img.ColorRgb8(0, 0, 0));
+
+    final generator = CpclGenerator(
+      config: const CpclConfiguration(
+        printWidth: 32,
+        labelLength: 16,
+        offset: 10,
+        autoForm: false,
+        autoPrint: false,
+      ),
+      commands: [CpclBitmap(x: 2, y: 3, image: black)],
+    );
+
+    expect(generator.preview(), startsWith('! 10 203 203 16 1\r\n'));
+
+    final png = await CpclPreviewService.renderPngFromGenerator(
+      generator,
+      pixelRatio: 1,
+    );
+    final rendered = img.decodePng(png)!;
+
+    // The bitmap origin (2, 3) plus the horizontal offset lands at x = 12.
+    expect(_isLight(rendered.getPixel(2, 3)), isTrue);
+    expect(_isBlack(rendered.getPixel(12, 3)), isTrue);
+    expect(_isBlack(rendered.getPixel(15, 6)), isTrue);
+    expect(_isLight(rendered.getPixel(16, 3)), isTrue);
+  });
+
   test('inverseLine emits the documented five-parameter CPCL form', () {
     final generator = CpclGenerator()..inverseLine(0, 45, 145, 45);
 

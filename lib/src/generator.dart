@@ -86,6 +86,9 @@ class CpclGenerator {
 
   /// Writes the label initialization header and page width.
   ///
+  /// [offset] is the header's horizontal shift, in dots. It moves the label
+  /// to the right.
+  ///
   /// [horizontalDpi] and [verticalDpi] default to 203, the 8 dot/mm resolution
   /// used by [CpclPrintDensity.d8] and by [CpclConfiguration].
   CpclGenerator initialize(
